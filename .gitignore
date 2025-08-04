@@ -1,4 +1,4 @@
-# Dependencies
+# Node.js dependencies
 node_modules/
 pnpm-lock.yaml
 
@@ -24,6 +24,11 @@ coverage/
 
 # OS files
 .DS_Store
+.env
+.env.local
+.env.*.local
+
+# OS generated files
 Thumbs.db
 
 # Logs
