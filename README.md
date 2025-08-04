@@ -25,7 +25,7 @@ PureSubs/
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - pnpm 8+
 
 ### Installation
@@ -83,6 +83,7 @@ console.log(videoData.subtitles.srt);
 ### Chrome Extension
 
 A user-friendly browser extension that provides:
+
 - Seamless UI integration with YouTube
 - One-click subtitle downloads
 - Multiple format support (SRT, TXT)
@@ -91,6 +92,7 @@ A user-friendly browser extension that provides:
 ## 🛣️ Development Roadmap
 
 ### Phase 1: Foundation (Current)
+
 - [x] Project structure and build system
 - [x] Core engine interface design
 - [x] Chrome extension framework
@@ -99,6 +101,7 @@ A user-friendly browser extension that provides:
 - [ ] Basic Chrome extension functionality
 
 ### Phase 2: Core Features
+
 - [ ] YouTube data parsing
 - [ ] Subtitle format conversion
 - [ ] Error handling and edge cases
@@ -106,6 +109,7 @@ A user-friendly browser extension that provides:
 - [ ] User preferences system
 
 ### Phase 3: Polish & Distribution
+
 - [ ] Performance optimization
 - [ ] Chrome Web Store submission
 - [ ] Documentation and examples
@@ -127,6 +131,7 @@ cd packages/core-engine && pnpm test
 ```
 
 Current coverage targets:
+
 - Core Engine: 95%+ coverage
 - Chrome Extension: 85%+ coverage
 
