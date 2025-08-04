@@ -1,0 +1,278 @@
+/**
+ * PureSubs Content Script Styles
+ * 
+ * Styles for the injected download button and UI elements
+ */
+
+.puresubs-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-right: 8px;
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 18px;
+  color: var(--yt-spec-text-primary);
+  font-family: "Roboto", "Arial", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.puresubs-download-btn:hover {
+  background: var(--yt-spec-badge-chip-background);
+  border-color: var(--yt-spec-10-percent-layer);
+}
+
+.puresubs-download-btn:active {
+  transform: scale(0.98);
+}
+
+.puresubs-download-btn.loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.puresubs-download-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.puresubs-download-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+  .puresubs-download-btn {
+    border-color: #717171;
+    color: #fff;
+  }
+  
+  .puresubs-download-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #909090;
+  }
+}
+
+/* YouTube-specific theme support */
+[dark] .puresubs-download-btn {
+  border-color: #717171;
+  color: #fff;
+}
+
+[dark] .puresubs-download-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #909090;
+}
+
+/* Notification styles */
+.puresubs-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  font-family: "Roboto", "Arial", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: slideIn 0.3s ease-out;
+}
+
+.puresubs-notification--success {
+  background: #4caf50;
+}
+
+.puresubs-notification--error {
+  background: #f44336;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Language selector modal (for future implementation) */
+.puresubs-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+}
+
+.puresubs-modal__content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+[dark] .puresubs-modal__content {
+  background: #212121;
+  color: #fff;
+}
+
+.puresubs-modal__header {
+  margin-bottom: 20px;
+}
+
+.puresubs-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.puresubs-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 4px;
+}
+
+.puresubs-modal__close:hover {
+  color: #333;
+}
+
+[dark] .puresubs-modal__close {
+  color: #ccc;
+}
+
+[dark] .puresubs-modal__close:hover {
+  color: #fff;
+}
+
+.puresubs-language-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.puresubs-language-item {
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.puresubs-language-item:hover {
+  background: #f5f5f5;
+}
+
+[dark] .puresubs-language-item:hover {
+  background: #333;
+}
+
+.puresubs-language-item--selected {
+  background: #e3f2fd;
+}
+
+[dark] .puresubs-language-item--selected {
+  background: #1976d2;
+}
+
+.puresubs-format-selector {
+  margin: 20px 0;
+}
+
+.puresubs-format-selector label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.puresubs-checkbox {
+  margin: 16px 0;
+}
+
+.puresubs-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.puresubs-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.puresubs-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-family: "Roboto", "Arial", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.puresubs-btn--primary {
+  background: #1976d2;
+  color: white;
+}
+
+.puresubs-btn--primary:hover {
+  background: #1565c0;
+}
+
+.puresubs-btn--secondary {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.puresubs-btn--secondary:hover {
+  background: #eeeeee;
+  color: #333;
+}
+
+[dark] .puresubs-btn--secondary {
+  background: #333;
+  color: #ccc;
+}
+
+[dark] .puresubs-btn--secondary:hover {
+  background: #444;
+  color: #fff;
+}
