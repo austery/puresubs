@@ -8,20 +8,9 @@
 console.log('[PureSubs] Content script loaded and starting initialization');
 console.log('[PureSubs] Current URL:', location.href);
 console.log('[PureSubs] Document ready state:', document.readyState);
-console.log('[PureSubs] Chrome runtime available:', typeof chrome !== 'undefined' && chrome.runtime);
-console.log('[PureSubs] Chrome storage available:', typeof chrome !== 'undefined' && chrome.storage);
 
-// Add a visible indicator that the script is running
-try {
-  document.body.style.border = '2px solid red';
-  console.log('[PureSubs] Added red border to body as visual indicator');
-  setTimeout(() => {
-    document.body.style.border = '';
-    console.log('[PureSubs] Removed red border');
-  }, 3000);
-} catch (error) {
-  console.error('[PureSubs] Failed to add visual indicator:', error);
-}
+// 🕵️ 第一步：立即注入间谍脚本到页面环境
+injectSpyScript();
 
 import { 
   getYouTubeDataFromPage, 
@@ -34,6 +23,76 @@ import {
 let currentVideoId: string | null = null;
 let downloadButton: HTMLElement | null = null;
 let isInitialized = false;
+let interceptedSubtitleData: any = null;
+
+// 监听来自间谍脚本的字幕数据
+window.addEventListener('message', (event) => {
+  // 只处理来自同一窗口的消息
+  if (event.source !== window) return;
+  
+  if (event.data?.type === 'PURESUBS_SUBTITLE_INTERCEPTED') {
+    const { data } = event.data;
+    console.log(`[PureSubs] 🎉 Received subtitle data from spy: ${data.videoId} (${data.language})`);
+    console.log(`[PureSubs] 📊 Data length: ${data.content?.length || 0}`);
+    
+    // 存储拦截到的数据
+    interceptedSubtitleData = data;
+    
+    // 触发自定义事件通知其他组件
+    const customEvent = new CustomEvent('puresubs-subtitle-available', {
+      detail: data
+    });
+    document.dispatchEvent(customEvent);
+  }
+  
+  if (event.data?.type === 'PURESUBS_SPY_STATUS') {
+    console.log('[PureSubs] 📊 Spy status:', event.data.data);
+  }
+});
+
+/**
+ * 注入间谍脚本到页面主环境
+ */
+function injectSpyScript(): void {
+  try {
+    console.log('[PureSubs] 🕵️ Injecting spy script into main page context...');
+    
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('injected-spy.js');
+    script.type = 'text/javascript';
+    
+    // 注入到页面
+    (document.head || document.documentElement).appendChild(script);
+    
+    // 注入完成后移除script标签
+    script.onload = () => {
+      script.remove();
+      console.log('[PureSubs] ✅ Spy script injected successfully');
+    };
+    
+    script.onerror = (error) => {
+      console.error('[PureSubs] ❌ Failed to inject spy script:', error);
+    };
+    
+  } catch (error) {
+    console.error('[PureSubs] ❌ Error injecting spy script:', error);
+  }
+}
+
+/**
+ * 获取拦截到的字幕数据
+ */
+function getInterceptedSubtitleData(videoId: string, language?: string): any {
+  if (!interceptedSubtitleData) return null;
+  
+  // 检查视频ID匹配
+  if (interceptedSubtitleData.videoId !== videoId) return null;
+  
+  // 如果指定了语言，检查语言匹配
+  if (language && interceptedSubtitleData.language !== language) return null;
+  
+  return interceptedSubtitleData;
+}
 
 // Configuration
 interface UserPreferences {

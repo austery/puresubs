@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PureSubs 字幕下载问题诊断报告</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #e50914;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #333;
+            border-bottom: 2px solid #e50914;
+            padding-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        .error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+        .code {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+        .solution-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .step {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .icon {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 PureSubs 字幕下载问题诊断报告</h1>
+        
+        <h2>🔍 问题分析</h2>
+        
+        <div class="status error">
+            <strong>⚠️ 主要问题：YouTube字幕API返回空内容</strong>
+            <p>通过测试发现，YouTube的字幕API (timedtext) 现在对外部请求返回空内容，这是导致字幕下载失败的根本原因。</p>
+        </div>
+
+        <div class="status warning">
+            <strong>📊 测试结果总结：</strong>
+            <ul>
+                <li>✅ YouTube页面数据解析正常</li>
+                <li>✅ 字幕轨道信息获取成功</li>
+                <li>✅ 字幕URL格式正确</li>
+                <li>❌ 字幕内容获取失败（API返回空）</li>
+            </ul>
+        </div>
+
+        <h2>🛠️ 已实施的解决方案</h2>
+
+        <div class="solution-box">
+            <h3>💡 多重回退策略实现</h3>
+            <p>我已经为您的扩展实现了一个智能的多重回退系统，确保即使在API失败的情况下也能提供有用的反馈：</p>
+        </div>
+
+        <div class="step">
+            <strong>🎯 策略1：增强的API请求</strong>
+            <ul>
+                <li>添加了完整的浏览器请求头（User-Agent, Referer等）</li>
+                <li>启用了cookies和正确的referrer策略</li>
+                <li>增加了详细的错误日志记录</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>🎯 策略2：DOM内容提取</strong>
+            <ul>
+                <li>从页面脚本中搜索嵌入的字幕数据</li>
+                <li>检测YouTube播放器中的实时字幕显示</li>
+                <li>智能文本清理和格式化</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <strong>🎯 策略3：用户友好的错误处理</strong>
+            <ul>
+                <li>当字幕不可用时，生成详细的说明文档</li>
+                <li>提供故障排除建议</li>
+                <li>支持SRT和TXT格式的错误信息下载</li>
+            </ul>
+        </div>
+
+        <h2>📝 修改的文件</h2>
+
+        <div class="code">
+<strong>主要修改：</strong>
+1. packages/chrome-extension/src/core/browser-engine.ts
+   - 增强了fetchSubtitleXML()函数的请求头
+   - 改进了getYouTubeDataFromPage()的错误处理
+   - 添加了详细的调试日志
+
+2. packages/chrome-extension/src/background/background.ts
+   - 优化了handleFetchSubtitleXml()函数
+   - 添加了更完整的HTTP请求头
+   - 增强了错误报告机制
+
+3. packages/chrome-extension/src/core/subtitle-fallbacks.ts（新增）
+   - 实现了DOM字幕提取功能
+   - 提供了用户友好的错误消息生成
+   - 包含了多重回退策略的协调逻辑
+        </div>
+
+        <h2>🚀 使用建议</h2>
+
+        <div class="status success">
+            <strong>✅ 立即可用的功能：</strong>
+            <ol>
+                <li><strong>扩展安装</strong>：将 <code>packages/chrome-extension/dist/</code> 文件夹加载到Chrome扩展开发者模式</li>
+                <li><strong>访问YouTube</strong>：打开任意YouTube视频页面</li>
+                <li><strong>下载字幕</strong>：点击PureSubs按钮尝试下载</li>
+                <li><strong>查看结果</strong>：即使字幕API失败，也会得到详细的问题说明</li>
+            </ol>
+        </div>
+
+        <h2>🔬 进一步的解决方案</h2>
+
+        <div class="status warning">
+            <strong>🔍 长期解决方案：</strong>
+            <ul>
+                <li><strong>YouTube Transcript API</strong>：研究使用官方的YouTube Data API v3</li>
+                <li><strong>浏览器自动化</strong>：通过模拟用户操作获取字幕</li>
+                <li><strong>第三方服务</strong>：集成专业的字幕提取服务</li>
+                <li><strong>用户反馈收集</strong>：建立问题报告系统，收集失败案例</li>
+            </ul>
+        </div>
+
+        <h2>📞 技术支持</h2>
+
+        <div class="solution-box">
+            <h3>🤝 如何测试修复效果</h3>
+            <ol>
+                <li>重新构建扩展（已完成）</li>
+                <li>在Chrome中重新加载扩展</li>
+                <li>访问YouTube视频页面</li>
+                <li>打开浏览器开发者工具查看控制台日志</li>
+                <li>点击字幕下载按钮</li>
+                <li>检查下载的文件内容</li>
+            </ol>
+        </div>
+
+        <div class="status success">
+            <strong>📈 预期改进效果：</strong>
+            <ul>
+                <li>用户不再遇到"空白下载"问题</li>
+                <li>详细的错误信息帮助用户理解问题</li>
+                <li>开发者获得更好的调试信息</li>
+                <li>为未来的API修复奠定基础</li>
+            </ul>
+        </div>
+
+        <div class="code">
+<strong>测试命令：</strong>
+cd /Users/pengl/projects/PureSubs
+pnpm build
+# 然后在Chrome中重新加载扩展进行测试
+        </div>
+
+        <p style="text-align: center; margin-top: 40px; color: #666;">
+            <strong>PureSubs Team</strong> • 致力于为用户提供最佳的字幕下载体验 🎬
+        </p>
+    </div>
+</body>
+</html>

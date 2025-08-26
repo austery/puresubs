@@ -136,21 +136,46 @@ async function handleFetchSubtitleXml(payload: { url: string }, sendResponse: (r
 
   try {
     // 在这里，我们使用带有自定义请求头的 fetch
+    // 添加更多的请求头来模拟真实的浏览器请求
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/xml,text/xml,*/*',
-        // 伪装成一个普通的浏览器请求
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin',
+        // 添加Referer头，这很重要
+        'Referer': 'https://www.youtube.com/',
+        // 使用最新的Chrome User-Agent
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      // 添加credentials以确保包含cookies
+      credentials: 'include',
+      // 设置referrer策略
+      referrerPolicy: 'strict-origin-when-cross-origin'
     });
 
+    console.log(`[PureSubs BG] Response status: ${response.status} ${response.statusText}`);
+    console.log(`[PureSubs BG] Response content-type:`, response.headers.get('content-type'));
+    console.log(`[PureSubs BG] Response content-length:`, response.headers.get('content-length'));
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
     }
 
     const xmlContent = await response.text();
     console.log(`[PureSubs BG] Fetched XML content length: ${xmlContent.length}`);
-    console.log(`[PureSubs BG] Content preview:`, xmlContent.substring(0, 500));
+    
+    if (xmlContent.length === 0) {
+      console.warn('[PureSubs BG] WARNING: YouTube API returned empty content');
+      console.warn('[PureSubs BG] This is likely due to YouTube API access restrictions since 2023');
+      console.warn('[PureSubs BG] The extension may need to use alternative methods');
+    } else {
+      console.log(`[PureSubs BG] Content preview:`, xmlContent.substring(0, 500));
+    }
     
     sendResponse({ success: true, content: xmlContent });
 

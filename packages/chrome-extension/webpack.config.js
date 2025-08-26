@@ -52,6 +52,10 @@ module.exports = (env, argv) => {
           {
             from: 'src/content/content.css',
             to: 'content.css'
+          },
+          {
+            from: 'src/core/injected-spy.js',
+            to: 'core/injected-spy.js'
           }
         ]
       })

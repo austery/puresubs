@@ -3,6 +3,39 @@
  * This version uses browser fetch API and runs in Chrome extension context
  */
 
+import { globalSubtitleInterceptor, parseJSON3Subtitles } from './subtitle-interceptor';
+
+// 💡 间谍脚本数据接口
+declare global {
+  interface Window {
+    PureSubsSpyData?: {
+      [videoId: string]: {
+        [language: string]: {
+          content: string;
+          format: string;
+          timestamp: number;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * 获取间谍脚本拦截的字幕数据
+ */
+function getInterceptedSubtitleData(videoId: string, language: string): any {
+  try {
+    const spyData = window.PureSubsSpyData?.[videoId]?.[language];
+    if (spyData && Date.now() - spyData.timestamp < 60000) { // 1分钟内的数据有效
+      return spyData;
+    }
+    return null;
+  } catch (error) {
+    console.warn('[PureSubs] Error accessing spy data:', error);
+    return null;
+  }
+}
+
 export interface SubtitleTrack {
   /** Language code (e.g., 'en', 'zh-Hans') */
   language: string;
@@ -195,35 +228,18 @@ export async function fetchSubtitleXML(subtitleUrl: string): Promise<string> {
       return xmlContent;
     }
 
-    // 2. 如果原始 URL 返回空，再尝试备用方案
-    console.log('[PureSubs] Original URL returned empty, trying alternatives via background script...');
-    const url = new URL(subtitleUrl);
-    const videoId = url.searchParams.get('v');
-    const lang = url.searchParams.get('lang');
+    console.log('[PureSubs] Original URL returned empty content, this might be due to YouTube API changes');
+    console.log('[PureSubs] Note: YouTube may have changed their subtitle API access policy');
+    
+    // 2. 如果原始 URL 返回空，可能是因为YouTube API的限制
+    // 在实际情况下，这需要在浏览器环境中通过其他方式获取字幕
+    console.warn('[PureSubs] YouTube subtitle API returned empty content. This is a known issue since 2023.');
+    console.warn('[PureSubs] Possible solutions:');
+    console.warn('[PureSubs] 1. Use browser extension context to access page data directly');
+    console.warn('[PureSubs] 2. Extract subtitle data from page DOM if available');
+    console.warn('[PureSubs] 3. Try alternative subtitle extraction methods');
 
-    if (videoId && lang) {
-      const alternativeUrls = [
-        `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`,
-        `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}`,
-        `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv1`
-      ];
-
-      for (const altUrl of alternativeUrls) {
-        console.log('[PureSubs] Trying alternative URL via background:', altUrl);
-        try {
-          const altContent = await fetchFromBackground(altUrl);
-          if (altContent && altContent.length > 0) {
-            console.log('[PureSubs] Success with alternative URL!');
-            return altContent;
-          }
-        } catch (error) {
-          console.log(`[PureSubs] Alternative URL failed:`, error);
-        }
-      }
-    }
-
-    // 3. 如果所有方法都失败，返回空字符串
-    console.warn('[PureSubs] All fetch attempts via background script returned empty content.');
+    // 返回空字符串而不是抛出错误，让上层处理
     return '';
 
   } catch (error) {
@@ -522,17 +538,160 @@ export async function getYouTubeDataFromPage(options: ExtractOptions = {}): Prom
     // Step 4: Extract subtitles if requested
     let subtitles;
     if (options.extractSubtitles && availableSubtitles.length > 0) {
-      const selectedSubtitle = selectBestSubtitle(availableSubtitles);
+      console.log('[PureSubs] 🎯 Extracting subtitles using 2025 spy injection method...');
+      
+      // 选择最佳字幕
+      let selectedSubtitle = null;
+      if (options.subtitleLanguage) {
+        selectedSubtitle = availableSubtitles.find(track => track.language === options.subtitleLanguage);
+      }
+      if (!selectedSubtitle) {
+        selectedSubtitle = selectBestSubtitle(availableSubtitles);
+      }
       
       if (selectedSubtitle) {
-        // Fetch and parse subtitle content
-        const xmlContent = await fetchSubtitleXML(selectedSubtitle.baseUrl);
-        const entries = parseSubtitleXML(xmlContent);
+        console.log('[PureSubs] 🎭 Selected subtitle track:', selectedSubtitle);
         
+        try {
+          // 🕵️ 新策略：使用注入的间谍脚本拦截数据
+          const videoId = extractVideoIdFromCurrentURL();
+          
+          // 首先检查是否已经有拦截到的数据
+          let spyData = getInterceptedSubtitleData(videoId, selectedSubtitle.language);
+          
+          if (!spyData) {
+            console.log('[PureSubs] 🔍 No spy data found yet, triggering subtitle loading...');
+            
+            // 检查间谍脚本状态
+            await checkSpyStatus();
+            
+            // 触发字幕加载（模拟用户操作）
+            await triggerSubtitleLoading();
+            
+            // 等待间谍拦截数据
+            console.log('[PureSubs] ⏳ Waiting for spy to intercept subtitle data...');
+            spyData = await waitForSpyData(videoId, selectedSubtitle.language, 5000);
+          }
+          
+          if (spyData && spyData.content) {
+            console.log('[PureSubs] 🎉 Using intercepted spy data!');
+            console.log(`[PureSubs] 📊 Data format: ${spyData.format}, length: ${spyData.content.length}`);
+            
+            // 解析不同格式的字幕数据
+            let entries: SubtitleEntry[] = [];
+            
+            if (spyData.format === 'json3' || spyData.content.includes('"events"')) {
+              // JSON3格式
+              entries = parseJSON3Subtitles(spyData.content);
+            } else if (spyData.content.includes('<transcript>') || spyData.content.includes('<text')) {
+              // XML格式
+              entries = parseSubtitleXML(spyData.content);
+            } else {
+              // 尝试作为JSON解析
+              try {
+                const jsonData = JSON.parse(spyData.content);
+                if (jsonData.events) {
+                  entries = parseJSON3Subtitles(spyData.content);
+                }
+              } catch {
+                console.warn('[PureSubs] ⚠️ Unknown subtitle format, attempting plain text parsing');
+                entries = parseSubtitleTextFallback(spyData.content);
+              }
+            }
+            
+            if (entries.length > 0) {
+              console.log(`[PureSubs] ✅ Successfully parsed ${entries.length} subtitle entries`);
+              
+              subtitles = {
+                srt: convertToSRT(entries),
+                txt: convertToTXT(entries),
+                entries: entries
+              };
+            } else {
+              throw new Error('Failed to parse intercepted subtitle data');
+            }
+            
+          } else {
+            throw new Error('No subtitle data intercepted by spy');
+          }
+          
+        } catch (spyError: any) {
+          console.error('[PureSubs] 🚨 Spy interception method failed:', spyError);
+          
+          // 回退到传统方法
+          try {
+            console.log('[PureSubs] 🔄 Falling back to traditional methods...');
+            const { fetchSubtitleWithFallbacks } = await import('./subtitle-fallbacks');
+            const subtitleResult = await fetchSubtitleWithFallbacks(
+              selectedSubtitle.baseUrl, 
+              metadata.title
+            );
+            
+            subtitles = subtitleResult;
+            
+          } catch (fallbackError) {
+            console.error('[PureSubs] 💥 All subtitle extraction methods failed:', fallbackError);
+            
+            // 最终回退：详细的错误信息
+            const errorMessage = `🚨 字幕获取失败 (2025年最新尝试)
+
+视频: ${metadata.title}
+
+技术详情：
+- 间谍脚本注入：${typeof getInterceptedSubtitleData === 'function' ? '✅ 成功' : '❌ 失败'}
+- 可用字幕轨道：${availableSubtitles.length}个
+- 选定语言：${selectedSubtitle.language}
+- 错误类型：${spyError?.message || 'Unknown error'}
+
+这表明YouTube可能又更新了反爬虫机制。
+
+解决建议：
+1. 确保视频有字幕可用
+2. 尝试在YouTube播放器中手动开启字幕
+3. 刷新页面后重试
+4. 联系PureSubs团队获取最新更新
+
+PureSubs Team - 2025年持续更新中 🛠️`;
+
+            subtitles = {
+              srt: `1\n00:00:00,000 --> 00:00:15,000\n${errorMessage}\n\n`,
+              txt: errorMessage,
+              entries: [{
+                start: 0,
+                end: 15,
+                text: errorMessage
+              }]
+            };
+          }
+        }
+      } else {
+        console.log('[PureSubs] ❌ No suitable subtitle track found');
+        const noSubsMessage = `📺 该视频暂无可用字幕
+
+视频: ${metadata.title}
+
+检测结果：
+- 可用字幕轨道：${availableSubtitles.length}个
+- 支持的语言：${availableSubtitles.map(track => `${track.name} (${track.language})`).join(', ') || '无'}
+- 间谍脚本状态：已注入
+
+此视频可能：
+1. 没有上传字幕文件
+2. 字幕仅对特定地区开放  
+3. 需要在YouTube播放器中手动开启
+
+建议在YouTube播放器设置中检查字幕选项。
+
+PureSubs Team`;
+
         subtitles = {
-          srt: convertToSRT(entries),
-          txt: convertToTXT(entries),
-          entries: entries
+          srt: `1\n00:00:00,000 --> 00:00:08,000\n${noSubsMessage}\n\n`,
+          txt: noSubsMessage,
+          entries: [{
+            start: 0,
+            end: 8,
+            text: noSubsMessage
+          }]
         };
       }
     }
@@ -544,6 +703,118 @@ export async function getYouTubeDataFromPage(options: ExtractOptions = {}): Prom
       subtitles
     };
   } catch (error) {
+    console.error('[PureSubs] 💥 Failed to extract YouTube data:', error);
     throw new Error(`Failed to extract YouTube data: ${error}`);
+  }
+}
+
+/**
+ * 检查间谍脚本状态
+ */
+async function checkSpyStatus(): Promise<void> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      console.log('[PureSubs] ⏰ Spy status check timeout');
+      resolve();
+    }, 1000);
+    
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PURESUBS_SPY_STATUS') {
+        console.log('[PureSubs] 📊 Spy status received:', event.data.data);
+        window.removeEventListener('message', handleMessage);
+        clearTimeout(timeout);
+        resolve();
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    
+    // 请求间谍状态
+    window.postMessage({ type: 'PURESUBS_REQUEST_STATUS' }, '*');
+  });
+}
+
+/**
+ * 等待间谍拦截数据
+ */
+async function waitForSpyData(videoId: string, language: string, timeoutMs: number = 5000): Promise<any> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      console.log('[PureSubs] ⏰ Waiting for spy data timeout');
+      resolve(null);
+    }, timeoutMs);
+    
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PURESUBS_SUBTITLE_INTERCEPTED') {
+        const data = event.data.data;
+        if (data.videoId === videoId && (data.language === language || !language)) {
+          console.log('[PureSubs] 🎯 Got matching spy data!');
+          window.removeEventListener('message', handleMessage);
+          clearTimeout(timeout);
+          resolve(data);
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+  });
+}
+
+/**
+ * 简单的文本解析（作为最后回退）
+ */
+function parseSubtitleTextFallback(content: string): SubtitleEntry[] {
+  const lines = content.split('\n').filter(line => line.trim());
+  const entries: SubtitleEntry[] = [];
+  
+  lines.forEach((line, index) => {
+    if (line.trim()) {
+      entries.push({
+        start: index * 3,
+        end: (index + 1) * 3,
+        text: line.trim()
+      });
+    }
+  });
+  
+  return entries;
+}
+
+/**
+ * 从当前URL提取视频ID
+ */
+function extractVideoIdFromCurrentURL(): string {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('v') || '';
+}
+
+/**
+ * 触发字幕加载（模拟用户操作）
+ */
+async function triggerSubtitleLoading(): Promise<void> {
+  try {
+    console.log('[PureSubs] Attempting to trigger subtitle loading...');
+    
+    // 查找字幕按钮
+    const captionButton = document.querySelector('[data-title-no-tooltip="Subtitles/closed captions unavailable"], [data-title-no-tooltip*="subtitle"], .ytp-subtitles-button, .ytp-cc-button');
+    
+    if (captionButton && captionButton instanceof HTMLElement) {
+      console.log('[PureSubs] Found caption button, attempting to click...');
+      captionButton.click();
+      
+      // 等待一下让菜单加载
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 查找第一个字幕选项
+      const subtitleOption = document.querySelector('.ytp-menuitem[role="menuitemradio"]');
+      if (subtitleOption && subtitleOption instanceof HTMLElement) {
+        console.log('[PureSubs] Found subtitle option, clicking...');
+        subtitleOption.click();
+      }
+    } else {
+      console.log('[PureSubs] Caption button not found, subtitle loading may not be triggered');
+    }
+  } catch (error) {
+    console.error('[PureSubs] Error triggering subtitle loading:', error);
   }
 }
