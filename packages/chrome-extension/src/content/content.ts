@@ -5,6 +5,24 @@
  * and handles the user interaction for downloading subtitles.
  */
 
+console.log('[PureSubs] Content script loaded and starting initialization');
+console.log('[PureSubs] Current URL:', location.href);
+console.log('[PureSubs] Document ready state:', document.readyState);
+console.log('[PureSubs] Chrome runtime available:', typeof chrome !== 'undefined' && chrome.runtime);
+console.log('[PureSubs] Chrome storage available:', typeof chrome !== 'undefined' && chrome.storage);
+
+// Add a visible indicator that the script is running
+try {
+  document.body.style.border = '2px solid red';
+  console.log('[PureSubs] Added red border to body as visual indicator');
+  setTimeout(() => {
+    document.body.style.border = '';
+    console.log('[PureSubs] Removed red border');
+  }, 3000);
+} catch (error) {
+  console.error('[PureSubs] Failed to add visual indicator:', error);
+}
+
 import { 
   getYouTubeDataFromPage, 
   ExtractOptions, 
@@ -29,15 +47,29 @@ interface UserPreferences {
  * Initialize the content script
  */
 function init(): void {
-  if (isInitialized) return;
+  if (isInitialized) {
+    console.log('[PureSubs] Content script already initialized, skipping');
+    return;
+  }
   
-  console.log('[PureSubs] Initializing content script');
+  console.log('[PureSubs] Initializing content script...');
+  console.log('[PureSubs] Looking for #movie_player element...');
   
   // Wait for YouTube to load
-  waitForElement('#movie_player').then(() => {
+  waitForElement('#movie_player').then((element) => {
+    console.log('[PureSubs] Found #movie_player element:', element);
+    console.log('[PureSubs] Setting up video watcher and injecting button...');
     setupVideoWatcher();
     injectDownloadButton();
     isInitialized = true;
+    console.log('[PureSubs] Initialization completed successfully');
+  }).catch((error) => {
+    console.error('[PureSubs] Failed to initialize - #movie_player not found:', error);
+    console.log('[PureSubs] Retrying initialization in 3 seconds...');
+    setTimeout(() => {
+      isInitialized = false;
+      init();
+    }, 3000);
   });
 }
 
@@ -330,15 +362,47 @@ async function showLanguageSelector(): Promise<void> {
  * Get user preferences from storage
  */
 async function getUserPreferences(): Promise<UserPreferences> {
-  return new Promise((resolve) => {
-    chrome.storage.sync.get({
-      preferredLanguage: 'zh-Hans', // 默认偏好中文
-      preferredFormat: 'srt',
-      includeDescription: false,
-      autoDownload: true // 启用智能自动下载
-    }, (result) => {
-      resolve(result as UserPreferences);
-    });
+  return new Promise((resolve, reject) => {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage) {
+        console.error('[PureSubs] Chrome storage API not available');
+        resolve({
+          preferredLanguage: 'zh-Hans',
+          preferredFormat: 'srt',
+          includeDescription: false,
+          autoDownload: true
+        });
+        return;
+      }
+
+      chrome.storage.sync.get({
+        preferredLanguage: 'zh-Hans', // 默认偏好中文
+        preferredFormat: 'srt',
+        includeDescription: false,
+        autoDownload: true // 启用智能自动下载
+      }, (result) => {
+        if (chrome.runtime.lastError) {
+          console.error('[PureSubs] Storage error:', chrome.runtime.lastError);
+          resolve({
+            preferredLanguage: 'zh-Hans',
+            preferredFormat: 'srt',
+            includeDescription: false,
+            autoDownload: true
+          });
+        } else {
+          console.log('[PureSubs] Retrieved preferences:', result);
+          resolve(result as UserPreferences);
+        }
+      });
+    } catch (error) {
+      console.error('[PureSubs] Error in getUserPreferences:', error);
+      resolve({
+        preferredLanguage: 'zh-Hans',
+        preferredFormat: 'srt',
+        includeDescription: false,
+        autoDownload: true
+      });
+    }
   });
 }
 
@@ -363,21 +427,47 @@ function generateFilename(title: string, format: string, language?: string): str
  */
 async function triggerDownload(content: string, filename: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    
-    chrome.runtime.sendMessage({
-      type: 'DOWNLOAD_FILE',
-      payload: { url, filename }
-    }, (response) => {
-      URL.revokeObjectURL(url);
-      
-      if (response && response.success) {
-        resolve();
-      } else {
-        reject(new Error(response?.error || 'Download failed'));
+    try {
+      if (typeof chrome === 'undefined' || !chrome.runtime) {
+        console.error('[PureSubs] Chrome runtime API not available');
+        reject(new Error('Chrome extension APIs not available'));
+        return;
       }
-    });
+
+      console.log('[PureSubs] Creating download blob, content length:', content.length);
+      console.log('[PureSubs] Filename:', filename);
+      
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      
+      console.log('[PureSubs] Sending download message to background script');
+      
+      chrome.runtime.sendMessage({
+        type: 'DOWNLOAD_FILE',
+        payload: { url, filename }
+      }, (response) => {
+        URL.revokeObjectURL(url);
+        
+        if (chrome.runtime.lastError) {
+          console.error('[PureSubs] Runtime error:', chrome.runtime.lastError);
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        
+        console.log('[PureSubs] Download response:', response);
+        
+        if (response && response.success) {
+          console.log('[PureSubs] Download triggered successfully');
+          resolve();
+        } else {
+          console.error('[PureSubs] Download failed:', response?.error);
+          reject(new Error(response?.error || 'Download failed'));
+        }
+      });
+    } catch (error) {
+      console.error('[PureSubs] Error in triggerDownload:', error);
+      reject(error);
+    }
   });
 }
 
@@ -412,8 +502,14 @@ function showNotification(message: string, type: 'success' | 'error'): void {
 }
 
 // Initialize when DOM is ready
+console.log('[PureSubs] Setting up initialization trigger...');
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  console.log('[PureSubs] Document still loading, waiting for DOMContentLoaded...');
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('[PureSubs] DOMContentLoaded event fired, calling init()');
+    init();
+  });
 } else {
+  console.log('[PureSubs] Document already loaded, calling init() immediately');
   init();
 }

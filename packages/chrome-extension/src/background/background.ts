@@ -114,47 +114,13 @@ chrome.downloads.onChanged.addListener((downloadDelta) => {
   }
 });
 
-// Handle extension icon click (when not on YouTube)
-chrome.action.onClicked.addListener((tab) => {
-  console.log('[PureSubs] Extension icon clicked');
-  
-  // Check if we're on YouTube
-  if (tab.url && (tab.url.includes('youtube.com/watch') || tab.url.includes('youtu.be/'))) {
-    // Already on YouTube - content script should handle this
-    return;
-  }
-  
-  // Not on YouTube - show popup or redirect
-  chrome.tabs.create({
-    url: 'https://www.youtube.com',
-    active: true
-  });
-});
+// Extension icon behavior is handled by content scripts only
+// No popup or click handler needed for this version
 
 // Utility function to check if URL is YouTube video
 function isYouTubeVideoUrl(url: string): boolean {
   return /^https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)/.test(url);
 }
 
-// Context menu integration (optional - for future features)
-chrome.runtime.onInstalled.addListener(() => {
-  // Create context menu for YouTube videos
-  chrome.contextMenus.create({
-    id: 'puresubs-download',
-    title: 'Download subtitles with PureSubs',
-    contexts: ['page'],
-    documentUrlPatterns: [
-      'https://www.youtube.com/watch*',
-      'https://youtube.com/watch*'
-    ]
-  });
-});
-
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'puresubs-download' && tab?.id) {
-    // Send message to content script to trigger download
-    chrome.tabs.sendMessage(tab.id, {
-      type: 'TRIGGER_DOWNLOAD'
-    });
-  }
-});
+// Context menus disabled for MVP version
+// All functionality is handled through injected buttons
