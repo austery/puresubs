@@ -8,9 +8,7 @@ module.exports = (env, argv) => {
   return {
     entry: {
       content: './src/content/content.ts',
-      background: './src/background/background.ts',
-      popup: './src/popup/popup.ts',
-      options: './src/options/options.ts'
+      background: './src/background/background.ts'
     },
     
     output: {
@@ -37,10 +35,7 @@ module.exports = (env, argv) => {
     },
     
     resolve: {
-      extensions: ['.ts', '.js'],
-      alias: {
-        '@puresubs/core-engine': path.resolve(__dirname, '../core-engine/src')
-      }
+      extensions: ['.ts', '.js']
     },
     
     plugins: [
@@ -55,16 +50,8 @@ module.exports = (env, argv) => {
             to: 'manifest.json'
           },
           {
-            from: 'src/popup/popup.html',
-            to: 'popup.html'
-          },
-          {
-            from: 'src/options/options.html',
-            to: 'options.html'
-          },
-          {
-            from: 'src/icons',
-            to: 'icons'
+            from: 'src/content/content.css',
+            to: 'content.css'
           }
         ]
       })

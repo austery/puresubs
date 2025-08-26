@@ -63,7 +63,9 @@ export function isBrowser(): boolean {
  * @returns Boolean indicating if running in Node.js
  */
 export function isNode(): boolean {
-  return typeof process !== 'undefined' && process.versions && process.versions.node;
+  return typeof process !== 'undefined' && 
+         typeof process.versions !== 'undefined' && 
+         typeof process.versions.node === 'string';
 }
 
 /**
@@ -88,7 +90,7 @@ export function getRandomUserAgent(): string {
  * 
  * @returns Fetch function
  */
-export async function createFetch(): Promise<typeof fetch> {
+export async function createFetch(): Promise<any> {
   if (isBrowser()) {
     return window.fetch;
   }

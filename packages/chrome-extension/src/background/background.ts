@@ -11,10 +11,10 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     // Set default preferences on first install
     chrome.storage.sync.set({
-      preferredLanguage: 'en',
+      preferredLanguage: 'zh-Hans', // 默认偏好中文
       preferredFormat: 'srt',
       includeDescription: false,
-      autoDownload: false
+      autoDownload: true // 启用智能自动下载
     });
   }
 });
@@ -77,10 +77,10 @@ function handleFileDownload(payload: { url: string; filename: string }, sendResp
  */
 function handleGetPreferences(sendResponse: (response: any) => void): void {
   chrome.storage.sync.get({
-    preferredLanguage: 'en',
+    preferredLanguage: 'zh-Hans', // 默认偏好中文
     preferredFormat: 'srt',
     includeDescription: false,
-    autoDownload: false
+    autoDownload: true // 启用智能自动下载
   }, (result) => {
     if (chrome.runtime.lastError) {
       sendResponse({ success: false, error: chrome.runtime.lastError.message });

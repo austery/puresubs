@@ -69,8 +69,34 @@ export async function getYouTubeData(
   url: string,
   options: ExtractOptions = {}
 ): Promise<YouTubeVideoData> {
-  // Implementation will be added in subsequent milestones
-  throw new Error('Not implemented yet');
+  try {
+    // Step 1: Fetch YouTube page HTML
+    const html = await fetchYouTubePageHTML(url);
+    
+    // Step 2: Extract ytInitialPlayerResponse
+    const playerResponse = extractPlayerResponse(html);
+    
+    // Step 3: Extract video metadata
+    const metadata = extractVideoMetadata(playerResponse);
+    
+    // Step 4: Extract available subtitle tracks
+    const availableSubtitles = extractSubtitleTracks(playerResponse);
+    
+    // Step 5: Extract subtitles if requested
+    let subtitles;
+    if (options.extractSubtitles && availableSubtitles.length > 0) {
+      subtitles = await extractSubtitleContent(availableSubtitles, options);
+    }
+    
+    return {
+      title: metadata.title,
+      description: metadata.description,
+      availableSubtitles,
+      subtitles
+    };
+  } catch (error) {
+    throw new Error(`Failed to extract YouTube data: ${error}`);
+  }
 }
 
 /**
@@ -80,8 +106,8 @@ export async function getYouTubeData(
  * @returns Array of available subtitle tracks
  */
 export function extractSubtitleTracks(playerResponse: any): SubtitleTrack[] {
-  // Implementation will be added in subsequent milestones
-  throw new Error('Not implemented yet');
+  // Implementation is in extractor.ts
+  return extractSubtitleTracksFromExtractor(playerResponse);
 }
 
 /**
@@ -91,8 +117,8 @@ export function extractSubtitleTracks(playerResponse: any): SubtitleTrack[] {
  * @returns Array of subtitle entries
  */
 export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
-  // Implementation will be added in subsequent milestones
-  throw new Error('Not implemented yet');
+  // Implementation is in parser.ts
+  return parseSubtitleXMLFromParser(xmlContent);
 }
 
 /**
@@ -102,8 +128,8 @@ export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
  * @returns SRT formatted string
  */
 export function convertToSRT(entries: SubtitleEntry[]): string {
-  // Implementation will be added in subsequent milestones
-  throw new Error('Not implemented yet');
+  // Implementation is in parser.ts
+  return convertToSRTFromParser(entries);
 }
 
 /**
@@ -113,8 +139,65 @@ export function convertToSRT(entries: SubtitleEntry[]): string {
  * @returns Plain text string
  */
 export function convertToTXT(entries: SubtitleEntry[]): string {
-  // Implementation will be added in subsequent milestones
-  throw new Error('Not implemented yet');
+  // Implementation is in parser.ts
+  return convertToTXTFromParser(entries);
+}
+
+// Import functions from modules
+import { 
+  fetchYouTubePageHTML,
+  extractPlayerResponse,
+  extractVideoMetadata,
+  extractSubtitleTracks as extractSubtitleTracksFromExtractor,
+  fetchSubtitleXML
+} from './extractor';
+import {
+  parseSubtitleXML as parseSubtitleXMLFromParser,
+  convertToSRT as convertToSRTFromParser,
+  convertToTXT as convertToTXTFromParser
+} from './parser';
+
+/**
+ * Extract subtitle content based on options
+ */
+async function extractSubtitleContent(
+  availableSubtitles: SubtitleTrack[],
+  options: ExtractOptions
+): Promise<{ srt: string; txt: string; entries: SubtitleEntry[] }> {
+  // 智能语言选择逻辑：中文 -> 英文 -> 提示
+  const preferredLanguages = options.preferredLanguages || ['zh-Hans', 'zh-CN', 'zh', 'en'];
+  const targetLanguage = options.subtitleLanguage;
+  
+  let selectedTrack: SubtitleTrack | null = null;
+  
+  if (targetLanguage) {
+    // 如果指定了目标语言，优先查找
+    selectedTrack = availableSubtitles.find(track => track.language === targetLanguage) || null;
+  } else {
+    // 按偏好语言顺序查找
+    for (const lang of preferredLanguages) {
+      selectedTrack = availableSubtitles.find(track => 
+        track.language === lang || track.language.startsWith(lang)
+      ) || null;
+      if (selectedTrack) break;
+    }
+  }
+  
+  if (!selectedTrack) {
+    throw new Error('No suitable subtitles found');
+  }
+  
+  // 获取字幕XML内容
+  const xmlContent = await fetchSubtitleXML(selectedTrack.baseUrl);
+  
+  // 解析为结构化数据
+  const entries = parseSubtitleXMLFromParser(xmlContent);
+  
+  // 转换为不同格式
+  const srt = convertToSRTFromParser(entries);
+  const txt = convertToTXTFromParser(entries);
+  
+  return { srt, txt, entries };
 }
 
 // Re-export all types and functions

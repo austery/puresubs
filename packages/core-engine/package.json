@@ -2,6 +2,7 @@
   "name": "@puresubs/core-engine",
   "version": "1.0.0",
   "description": "Core engine for extracting YouTube video metadata and subtitles",
+  "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",

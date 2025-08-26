@@ -14,9 +14,32 @@ import { SubtitleEntry } from './index';
  * @returns Array of subtitle entries with timing and text
  */
 export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
-  // Implementation will parse YouTube's subtitle XML format
-  // Example format: <text start="0.5" dur="2.3">Hello world</text>
-  throw new Error('Not implemented yet');
+  try {
+    const entries: SubtitleEntry[] = [];
+    
+    // Regex to match <text> tags with attributes and content
+    const textRegex = /<text start="([^"]+)"(?:\s+dur="([^"]+)")?>([^<]*)<\/text>/g;
+    
+    let match;
+    while ((match = textRegex.exec(xmlContent)) !== null) {
+      const start = parseFloat(match[1]);
+      const duration = match[2] ? parseFloat(match[2]) : 0;
+      const text = cleanSubtitleText(match[3]);
+      
+      if (text.trim()) {
+        entries.push({
+          start: start,
+          end: start + (duration || 0),
+          text: text
+        });
+      }
+    }
+    
+    // Sort entries by start time
+    return entries.sort((a, b) => a.start - b.start);
+  } catch (error) {
+    throw new Error(`Failed to parse subtitle XML: ${error}`);
+  }
 }
 
 /**
@@ -26,16 +49,23 @@ export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
  * @returns SRT formatted string
  */
 export function convertToSRT(entries: SubtitleEntry[]): string {
-  // Implementation will format entries into standard SRT format
-  // Format:
-  // 1
-  // 00:00:00,500 --> 00:00:02,800
-  // Hello world
-  // 
-  // 2
-  // 00:00:02,800 --> 00:00:05,100
-  // Next subtitle
-  throw new Error('Not implemented yet');
+  if (!entries || entries.length === 0) {
+    return '';
+  }
+  
+  return entries
+    .map((entry, index) => {
+      const startTime = formatSRTTimestamp(entry.start);
+      const endTime = formatSRTTimestamp(entry.end);
+      
+      return [
+        (index + 1).toString(),
+        `${startTime} --> ${endTime}`,
+        entry.text,
+        ''
+      ].join('\n');
+    })
+    .join('\n');
 }
 
 /**
@@ -61,10 +91,13 @@ export function convertToTXT(entries: SubtitleEntry[], separator: string = '\n')
  * @returns Formatted timestamp string
  */
 export function formatSRTTimestamp(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  const milliseconds = Math.floor((seconds % 1) * 1000);
+  // Round to 3 decimal places to avoid floating point precision issues
+  const roundedSeconds = Math.round(seconds * 1000) / 1000;
+  
+  const hours = Math.floor(roundedSeconds / 3600);
+  const minutes = Math.floor((roundedSeconds % 3600) / 60);
+  const secs = Math.floor(roundedSeconds % 60);
+  const milliseconds = Math.round((roundedSeconds % 1) * 1000);
   
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
 }

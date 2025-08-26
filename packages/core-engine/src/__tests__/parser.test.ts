@@ -164,9 +164,9 @@ describe('Parser Functions', () => {
 
     it('should sort entries by start time', () => {
       const entries: SubtitleEntry[] = [
-        { start: 4, end: 6, text: 'Third' },
-        { start: 0, end: 2, text: 'First' },
-        { start: 2, end: 4, text: 'Second' }
+        { start: 4, end: 5, text: 'Third' },
+        { start: 0, end: 1, text: 'First' },
+        { start: 2, end: 3, text: 'Second' }
       ];
 
       const result = mergeSubtitleEntries(entries, 0);
