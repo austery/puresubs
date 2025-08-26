@@ -158,74 +158,105 @@ export function extractSubtitleTracks(playerResponse: any): SubtitleTrack[] {
 }
 
 /**
- * Fetch subtitle XML content from URL using browser fetch
+ * Fetch subtitle XML content by delegating the request to the background script.
+ * This is the correct way to handle cross-origin fetches with custom headers in MV3.
  */
 export async function fetchSubtitleXML(subtitleUrl: string): Promise<string> {
-  try {
-    console.log('[PureSubs] Fetching subtitle XML from:', subtitleUrl);
+  console.log('[PureSubs] Delegating fetch request to background script for URL:', subtitleUrl);
 
-    // 首先，直接尝试原始URL
-    const response = await fetch(subtitleUrl);
-    console.log('[PureSubs] Fetch response status:', response.status, response.statusText);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const xmlContent = await response.text();
-    console.log('[PureSubs] Fetched XML content length:', xmlContent.length);
-    console.log('[PureSubs] XML content preview:', xmlContent.substring(0, 500));
-
-    // 如果返回内容为空，则尝试备用方案
-    if (xmlContent.length === 0) {
-      console.log('[PureSubs] Empty response with original URL, trying alternative approach...');
-      const url = new URL(subtitleUrl);
-      const videoId = url.searchParams.get('v');
-      const lang = url.searchParams.get('lang');
-
-      if (videoId && lang) {
-        // 构建多种可能的备用URL格式
-        const alternativeUrls = [
-          // srv3 格式 (最常用)
-          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`,
-          // srv1 格式
-          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv1`,
-          // 最基础格式
-          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}`,
-          // 带名称的格式 (有时需要)
-          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&name=`,
-          // 尝试不同的域名
-          `https://video.google.com/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`
-        ];
-
-        for (let i = 0; i < alternativeUrls.length; i++) {
-          const altUrl = alternativeUrls[i];
-          console.log(`[PureSubs] Trying alternative URL ${i + 1}:`, altUrl);
-          
-          try {
-            const altResponse = await fetch(altUrl);
-            if (altResponse.ok) {
-              const altContent = await altResponse.text();
-              console.log(`[PureSubs] Alternative URL ${i + 1} response length:`, altContent.length);
-              if (altContent.length > 0) {
-                console.log(`[PureSubs] Success with alternative URL ${i + 1}!`);
-                return altContent;
-              }
-            }
-          } catch (e) { 
-            console.log(`[PureSubs] Alternative URL ${i + 1} failed:`, e); 
+  // 定义一个函数，用于向后台发送消息并等待响应
+  const fetchFromBackground = (url: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        { type: 'FETCH_SUBTITLE_XML', payload: { url } },
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('[PureSubs] Runtime error:', chrome.runtime.lastError.message);
+            return reject(new Error(chrome.runtime.lastError.message));
+          }
+          if (response?.success) {
+            console.log(`[PureSubs] Received content from background, length: ${response.content?.length || 0}`);
+            console.log(`[PureSubs] Content preview:`, response.content?.substring(0, 500) || '');
+            resolve(response.content || '');
+          } else {
+            const errorMessage = response?.error || 'Unknown error from background script';
+            console.error('[PureSubs] Background script failed to fetch:', errorMessage);
+            reject(new Error(errorMessage));
           }
         }
-        
-        console.log('[PureSubs] All alternative URLs failed, returning empty content');
+      );
+    });
+  };
+
+  try {
+    // 1. 首先尝试原始 URL
+    let xmlContent = await fetchFromBackground(subtitleUrl);
+    if (xmlContent && xmlContent.length > 0) {
+      return xmlContent;
+    }
+
+    // 2. 如果原始 URL 返回空，再尝试备用方案
+    console.log('[PureSubs] Original URL returned empty, trying alternatives via background script...');
+    const url = new URL(subtitleUrl);
+    const videoId = url.searchParams.get('v');
+    const lang = url.searchParams.get('lang');
+
+    if (videoId && lang) {
+      const alternativeUrls = [
+        `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`,
+        `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}`,
+        `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv1`
+      ];
+
+      for (const altUrl of alternativeUrls) {
+        console.log('[PureSubs] Trying alternative URL via background:', altUrl);
+        try {
+          const altContent = await fetchFromBackground(altUrl);
+          if (altContent && altContent.length > 0) {
+            console.log('[PureSubs] Success with alternative URL!');
+            return altContent;
+          }
+        } catch (error) {
+          console.log(`[PureSubs] Alternative URL failed:`, error);
+        }
       }
     }
 
-    return xmlContent;
+    // 3. 如果所有方法都失败，返回空字符串
+    console.warn('[PureSubs] All fetch attempts via background script returned empty content.');
+    return '';
+
   } catch (error) {
-    console.error('[PureSubs] Failed to fetch subtitle XML:', error);
+    console.error('[PureSubs] Failed to fetch subtitle XML via background script:', error);
     throw new Error(`Failed to fetch subtitle XML: ${error}`);
   }
+}
+
+/**
+ * Parse plain text into subtitle entries (fallback for DOM extraction)
+ */
+function parseSubtitleText(textContent: string): SubtitleEntry[] {
+  console.log('[PureSubs] Parsing plain text as subtitle entries');
+  const entries: SubtitleEntry[] = [];
+  
+  // Split text into lines and create entries
+  const lines = textContent.split('\n').filter(line => line.trim());
+  
+  lines.forEach((line, index) => {
+    const text = cleanSubtitleText(line);
+    if (text.trim()) {
+      // Assign approximate timing based on line position
+      const start = index * 3; // 3 seconds per line
+      entries.push({
+        start: start,
+        end: start + 2.5, // 2.5 second duration
+        text: text
+      });
+    }
+  });
+  
+  console.log(`[PureSubs] Created ${entries.length} entries from plain text`);
+  return entries;
 }
 
 /**
@@ -235,6 +266,12 @@ export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
   try {
     console.log('[PureSubs] Parsing subtitle XML, content length:', xmlContent.length);
     const entries: SubtitleEntry[] = [];
+
+    // 如果内容不包含XML标签，尝试作为纯文本处理
+    if (!xmlContent.includes('<') || !xmlContent.includes('>')) {
+      console.log('[PureSubs] Content appears to be plain text, not XML');
+      return parseSubtitleText(xmlContent);
+    }
 
     // 一个更全面的正则表达式数组，以应对多种YouTube字幕格式
     const textPatterns = [
@@ -292,6 +329,12 @@ export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
         console.log(`[PureSubs] Successfully used pattern: ${textRegex}, found ${matchCount} matches`);
         break;
       }
+    }
+
+    // 如果XML解析失败，尝试作为纯文本处理
+    if (matchCount === 0) {
+      console.log('[PureSubs] XML patterns failed, trying plain text parsing...');
+      return parseSubtitleText(xmlContent);
     }
 
     console.log(`[PureSubs] Found ${matchCount} total matches, parsed ${entries.length} valid entries`);

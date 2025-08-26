@@ -36,6 +36,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       handleSetPreferences(request.payload, sendResponse);
       return true;
       
+    case 'FETCH_SUBTITLE_XML':
+      handleFetchSubtitleXml(request.payload, sendResponse);
+      return true; // Keep message channel open for async response
+      
     default:
       console.warn('[PureSubs] Unknown message type:', request.type);
       sendResponse({ success: false, error: 'Unknown message type' });
@@ -120,6 +124,40 @@ chrome.downloads.onChanged.addListener((downloadDelta) => {
 // Utility function to check if URL is YouTube video
 function isYouTubeVideoUrl(url: string): boolean {
   return /^https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)/.test(url);
+}
+
+/**
+ * Handle subtitle XML fetch requests from content script
+ * This uses background script to make requests with proper headers
+ */
+async function handleFetchSubtitleXml(payload: { url: string }, sendResponse: (response: any) => void): Promise<void> {
+  const { url } = payload;
+  console.log('[PureSubs BG] Received request to fetch XML from:', url);
+
+  try {
+    // 在这里，我们使用带有自定义请求头的 fetch
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/xml,text/xml,*/*',
+        // 伪装成一个普通的浏览器请求
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const xmlContent = await response.text();
+    console.log(`[PureSubs BG] Fetched XML content length: ${xmlContent.length}`);
+    console.log(`[PureSubs BG] Content preview:`, xmlContent.substring(0, 500));
+    
+    sendResponse({ success: true, content: xmlContent });
+
+  } catch (error) {
+    console.error('[PureSubs BG] Failed to fetch subtitle XML:', error);
+    sendResponse({ success: false, error: (error as Error).message });
+  }
 }
 
 // Context menus disabled for MVP version
