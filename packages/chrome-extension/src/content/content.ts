@@ -51,31 +51,55 @@ window.addEventListener('message', (event) => {
 });
 
 /**
- * 注入间谍脚本到页面主环境
+ * 🔑 使用官方API注入间谍脚本到主页面上下文 (Manifest V3)
  */
-function injectSpyScript(): void {
+async function injectSpyScript(): Promise<void> {
   try {
-    console.log('[PureSubs] 🕵️ Injecting spy script into main page context...');
+    console.log('[PureSubs] 🕵️ Injecting spy script using chrome.scripting API...');
     
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('injected-spy.js');
-    script.type = 'text/javascript';
+    // 向后台脚本发送注入请求
+    const response = await chrome.runtime.sendMessage({
+      type: 'INJECT_SPY_SCRIPT',
+      url: window.location.href
+    });
     
-    // 注入到页面
-    (document.head || document.documentElement).appendChild(script);
-    
-    // 注入完成后移除script标签
-    script.onload = () => {
-      script.remove();
-      console.log('[PureSubs] ✅ Spy script injected successfully');
-    };
-    
-    script.onerror = (error) => {
-      console.error('[PureSubs] ❌ Failed to inject spy script:', error);
-    };
+    if (response && response.success) {
+      console.log('[PureSubs] ✅ Spy script injected successfully via API!');
+    } else {
+      throw new Error(response?.error || 'Unknown injection error');
+    }
     
   } catch (error) {
-    console.error('[PureSubs] ❌ Error injecting spy script:', error);
+    console.error('[PureSubs] ❌ Failed to inject spy script via API:', error);
+    
+    // 回退到传统方法（虽然可能被CSP阻止）
+    console.log('[PureSubs] 🔄 Falling back to traditional injection method...');
+    await injectSpyScriptTraditional();
+  }
+}
+
+/**
+ * 传统的脚本注入方法（回退方案）
+ */
+async function injectSpyScriptTraditional(): Promise<void> {
+  try {
+    const scriptURL = chrome.runtime.getURL('core/injected-spy.js');
+    
+    const script = document.createElement('script');
+    script.src = scriptURL;
+    script.onload = () => {
+      console.log('[PureSubs] ✅ Traditional spy script loaded');
+      script.remove();
+    };
+    script.onerror = (error) => {
+      console.error('[PureSubs] ❌ Traditional injection failed:', error);
+      script.remove();
+    };
+    
+    (document.head || document.documentElement).appendChild(script);
+    
+  } catch (error) {
+    console.error('[PureSubs] ❌ Traditional injection error:', error);
   }
 }
 

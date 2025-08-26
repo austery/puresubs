@@ -1,60 +1,8 @@
 /**
- * Background script for PureSubs Chrome Extension
- * Handles cross-origin requests and script injection
+ * 🕵️ 间谍函数 - 在主页面上下文中执行
+ * 这个函数将通过 chrome.scripting.executeScript 注入到页面的 MAIN world
  */
-
-console.log('[PureSubs Background] Service worker started');
-
-// 监听来自内容脚本的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('[PureSubs Background] Received message:', message.type);
-  
-  if (message.type === 'INJECT_SPY_SCRIPT') {
-    handleSpyScriptInjection(sender.tab?.id, message.url)
-      .then(result => sendResponse(result))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    
-    return true; // 保持消息通道开放
-  }
-  
-  return false;
-});
-
-/**
- * 🔑 使用 chrome.scripting.executeScript 注入间谍脚本
- */
-async function handleSpyScriptInjection(tabId: number | undefined, url: string): Promise<{success: boolean, error?: string}> {
-  if (!tabId) {
-    throw new Error('No tab ID provided');
-  }
-  
-  try {
-    console.log('[PureSubs Background] 🕵️ Injecting spy script via executeScript API...');
-    
-    // 使用官方API注入间谍函数到主页面上下文
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      func: spyFunction,
-      world: 'MAIN' // 关键：在主世界执行，绕过沙箱
-    });
-    
-    console.log('[PureSubs Background] ✅ Spy script injected successfully!');
-    return { success: true };
-    
-  } catch (error) {
-    console.error('[PureSubs Background] ❌ Failed to inject spy script:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
-  }
-}
-
-/**
- * 🕵️ 间谍函数 - 将在主页面上下文中执行
- * 这是从 spy-function.ts 复制的纯JavaScript版本
- */
-function spyFunction() {
+export function spyFunction() {
   console.log('[PureSubs Spy] 🕵️ Agent activated in main page context (via executeScript)');
   
   // 保存原始fetch函数
@@ -64,7 +12,7 @@ function spyFunction() {
   /**
    * 检测是否为字幕相关URL
    */
-  function isSubtitleURL(url: any): boolean {
+  function isSubtitleURL(url: string): boolean {
     if (!url || typeof url !== 'string') return false;
     
     return [
@@ -73,13 +21,13 @@ function spyFunction() {
       'fmt=json3',
       'fmt=srv3', 
       'fmt=srv1'
-    ].some((pattern: string) => url.includes(pattern));
+    ].some(pattern => url.includes(pattern));
   }
   
   /**
    * 从URL中提取元数据
    */
-  function extractMetadata(url: any) {
+  function extractMetadata(url: string) {
     try {
       const urlObj = new URL(url);
       const params = urlObj.searchParams;
@@ -100,8 +48,8 @@ function spyFunction() {
   }
   
   // 重写 window.fetch
-  window.fetch = async function(input, init) {
-    let requestURL;
+  (window as any).fetch = async function(input: any, init?: any): Promise<Response> {
+    let requestURL: string;
     
     if (typeof input === 'string') {
       requestURL = input;
@@ -145,7 +93,7 @@ function spyFunction() {
             }
           };
           
-          window.postMessage(message, '*');
+          (window as any).postMessage(message, '*');
           console.log('[PureSubs Spy] 📨 Sent subtitle data to content script');
           dataIntercepted = true;
           
@@ -164,9 +112,9 @@ function spyFunction() {
   const originalOpen = XMLHttpRequest.prototype.open;
   const originalSend = XMLHttpRequest.prototype.send;
   
-  XMLHttpRequest.prototype.open = function(method: any, url: any, async?: any, username?: any, password?: any) {
+  XMLHttpRequest.prototype.open = function(method: string, url: string, async: boolean = true, username?: string | null, password?: string | null) {
     (this as any)._puresubs_url = url;
-    return originalOpen.call(this, method, url, async !== false, username, password);
+    return originalOpen.call(this, method, url, async, username, password);
   };
   
   XMLHttpRequest.prototype.send = function(body?: any) {
@@ -197,12 +145,12 @@ function spyFunction() {
       });
     }
     
-    return originalSend.call(this, body);
+    return originalSend.apply(this, [body]);
   };
   
   // 监听状态查询
   window.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'PURESUBS_REQUEST_STATUS') {
+    if (event.data?.type === 'PURESUBS_REQUEST_STATUS') {
       console.log('[PureSubs Spy] 📊 Status check requested');
       
       const statusMessage = {
@@ -257,3 +205,9 @@ function spyFunction() {
   
   console.log('[PureSubs Spy] 🚀 Agent fully initialized and monitoring network requests (executeScript method)');
 }
+
+/**
+ * 字符串版本的间谍函数，用于executeScript注入
+ * 因为executeScript不能直接传递TypeScript函数，需要转换为字符串
+ */
+export const spyFunctionString = `(${spyFunction.toString()})()`;
