@@ -1,4 +1,4 @@
-更新那个迪巴克 Channel。 /**
+/**
  * Content Script for PureSubs Chrome Extension
  * 
  * This script injects the subtitle download button into YouTube video pages
