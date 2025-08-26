@@ -3,7 +3,10 @@
  * This version uses browser fetch API and runs in Chrome extension context
  */
 
-import { globalSubtitleInterceptor, parseJSON3Subtitles } from './subtitle-interceptor';
+import { 
+  globalSubtitleInterceptor, 
+  parseJSON3Subtitles
+} from './subtitle-interceptor';
 
 // 💡 间谍脚本数据接口
 declare global {

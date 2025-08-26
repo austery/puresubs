@@ -195,7 +195,156 @@ window.addEventListener('message', (event) => {
 
 **🔑 最终解决方案：chrome.scripting.executeScript**
 
-**技术洞察**：CSP阻止手动脚本注入，但Chrome官方API可以绕过限制
+#### 步骤1：后台脚本处理注入请求
+
+```typescript
+// background.ts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'INJECT_SPY_SCRIPT') {
+    handleSpyScriptInjection(sender.tab?.id, message.url)
+      .then(result => sendResponse(result))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    
+    return true; // 保持消息通道开放
+  }
+});
+
+async function handleSpyScriptInjection(tabId: number, url: string): Promise<{success: boolean}> {
+  try {
+    // 🔑 使用官方API注入间谍函数到主页面上下文
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: spyFunction,
+      world: 'MAIN' // 关键：在主世界执行，绕过沙箱
+    });
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+```
+
+#### 步骤2：内容脚本发送注入请求
+
+```typescript
+// content.ts
+async function injectSpyScript(): Promise<void> {
+  try {
+    console.log('[PureSubs] 🕵️ Injecting spy script using chrome.scripting API...');
+    
+    // 向后台脚本发送注入请求
+    const response = await chrome.runtime.sendMessage({
+      type: 'INJECT_SPY_SCRIPT',
+      url: window.location.href
+    });
+    
+    if (response && response.success) {
+      console.log('[PureSubs] ✅ Spy script injected successfully via API!');
+    } else {
+      throw new Error(response?.error || 'Unknown injection error');
+    }
+    
+  } catch (error) {
+    console.error('[PureSubs] ❌ Failed to inject spy script via API:', error);
+    
+    // 回退到传统方法（虽然可能被CSP阻止）
+    await injectSpyScriptTraditional();
+  }
+}
+```
+
+#### 步骤3：间谍函数定义
+
+```javascript
+// 在background.ts中定义，将通过executeScript注入
+function spyFunction() {
+  console.log('[PureSubs Spy] 🕵️ Agent activated in main page context (via executeScript)');
+  
+  const originalFetch = window.fetch;
+  
+  // 重写 window.fetch
+  window.fetch = async function(input, init) {
+    let requestURL = typeof input === 'string' ? input : input.url;
+    const response = await originalFetch(input, init);
+    
+    // 检查是否为字幕请求
+    if (isSubtitleURL(requestURL)) {
+      const clonedResponse = response.clone();
+      const data = await clonedResponse.text();
+      
+      if (data && data.length > 0) {
+        // 通过 postMessage 发送数据到内容脚本
+        window.postMessage({
+          type: 'PURESUBS_SUBTITLE_INTERCEPTED',
+          data: {
+            url: requestURL,
+            content: data,
+            timestamp: Date.now()
+          }
+        }, '*');
+      }
+    }
+    
+    return response;
+  };
+  
+  // 显示成功指示器
+  const indicator = document.createElement('div');
+  indicator.textContent = '🕵️ PureSubs Spy (API)';
+  indicator.style.cssText = `
+    position: fixed; top: 10px; right: 10px;
+    background: #00ff00; color: black;
+    padding: 5px 10px; border-radius: 15px;
+    font-size: 12px; z-index: 10000;
+  `;
+  document.body?.appendChild(indicator);
+  setTimeout(() => indicator.remove(), 3000);
+}
+```
+
+#### 步骤4：权限配置更新
+
+```json
+// manifest.json
+{
+  "permissions": [
+    "activeTab",
+    "storage", 
+    "downloads",
+    "scripting",  // 🔑 executeScript API所需
+    "tabs"        // 🔑 获取tabId所需
+  ]
+}
+```
+
+---
+
+## 🎯 技术突破点对比
+
+### 手动脚本注入 vs 官方API注入
+
+| 方面 | 手动注入 (`appendChild`) | 官方API (`executeScript`) |
+|------|-------------------------|----------------------------|
+| **CSP兼容性** | ❌ 被YouTube CSP阻止 | ✅ 官方API绕过CSP |
+| **沙箱限制** | ❌ 受扩展沙箱影响 | ✅ 明确指定MAIN world |
+| **稳定性** | ⚠️ 依赖DOM操作 | ✅ 使用官方API |
+| **未来兼容** | ⚠️ 可能被进一步限制 | ✅ MV3标准方案 |
+| **实现复杂度** | 🟡 中等 | 🟢 简单清晰 |
+
+### 关键技术差异
+
+1. **执行上下文**
+   - 手动注入：试图通过DOM操作进入主页面
+   - 官方API：直接指定 `world: 'MAIN'` 执行环境
+
+2. **权限模型**
+   - 手动注入：依赖 `web_accessible_resources`
+   - 官方API：需要 `scripting` 和 `tabs` 权限
+
+3. **错误处理**
+   - 手动注入：依赖script元素的error事件
+   - 官方API：Promise-based，更好的错误信息
 ```javascript
 // injected-spy.js - 运行在主页面上下文
 (function() {
@@ -429,37 +578,77 @@ async function waitForSpyData(videoId: string, language: string, timeoutMs: numb
 
 ## 🚀 最终实现特点
 
-### ✅ 优势
-1. **完全绕过YouTube反爬虫机制**
-2. **支持所有字幕格式**（JSON3、XML、纯文本）
-3. **实时数据捕获**，无需预加载
-4. **多层回退策略**，确保高成功率
-5. **用户友好的错误信息**
+### ✅ 技术优势
 
-### ⚠️ 注意事项
-1. 依赖Chrome扩展特权
-2. 需要YouTube页面完全加载
-3. 可能受未来YouTube更新影响
+1. **完全绕过YouTube 2025年反爬虫机制**
+2. **使用Chrome官方API，符合Manifest V3规范**
+3. **支持所有字幕格式**（JSON3、XML、纯文本）
+4. **实时数据拦截**，无需预加载
+5. **双重保障策略**：官方API + 传统回退
+6. **详细状态反馈**和错误处理
 
-### 🔮 未来发展方向
-1. 支持更多视频平台
-2. 优化数据解析算法
-3. 增加字幕格式转换选项
-4. 实现批量下载功能
+### ⚠️ 实现要点
+
+1. **权限依赖**：需要 `scripting` 和 `tabs` 权限
+2. **上下文通信**：使用 `postMessage` 跨沙箱传递数据
+3. **CSP兼容**：通过官方API绕过YouTube的内容安全策略
+4. **错误回退**：提供传统注入方法作为备选方案
+
+### 🔮 技术演进历程
+
+| 阶段 | 方法 | 结果 | 经验教训 |
+|------|------|------|----------|
+| 1 | 基础API调用 | ❌ 失败 | YouTube检测非浏览器请求 |
+| 2 | 增强请求头 | ❌ 失败 | 仍被检测为自动化请求 |
+| 3 | 内容脚本拦截 | ❌ 失败 | Chrome扩展沙箱限制 |
+| 4 | UI自动化触发 | ⚠️ 部分成功 | 能触发UI但无法捕获数据 |
+| 5 | 手动脚本注入 | ❌ 失败 | 被YouTube CSP阻止 |
+| 6 | 官方API注入 | ✅ 成功 | **最终突破方案** |
+
+### 🎯 关键技术突破
+
+**从失败到成功的转折点：**
+
+- **问题根源**：YouTube的CSP策略阻止动态脚本执行
+- **解决方案**：使用 `chrome.scripting.executeScript({ world: 'MAIN' })`
+- **技术原理**：官方API拥有绕过CSP的特权
+- **实现效果**：成功在主页面上下文注入监控代码
 
 ---
 
-## 🎉 总结
+## 🎉 总结与展望
 
-经过多轮迭代和技术探索，最终通过**脚本注入+网络拦截**的方案成功突破了YouTube 2025年的反爬虫机制。这个解决方案展示了：
+### 技术成就
+
+经过**6个阶段的迭代探索**，最终通过 **chrome.scripting.executeScript API** 成功突破了YouTube 2025年的反爬虫机制。这个解决方案展示了：
 
 1. **深度技术理解**：理解Chrome扩展沙箱机制和YouTube的安全策略
-2. **创新思维**：通过脚本注入绕过传统限制
-3. **工程实践**：完整的开发、构建、部署流程
-4. **用户体验**：提供详细的状态反馈和错误处理
+2. **持续创新思维**：从传统方法到官方API的技术演进
+3. **完整工程实践**：包含开发、构建、部署的全流程解决方案
+4. **用户体验导向**：提供详细的状态反馈和错误处理机制
 
-这个调试过程体现了现代Web开发中面对复杂安全机制时的解决思路，为类似问题提供了宝贵的参考经验。
+### 技术价值
+
+这个调试过程不仅解决了PureSubs的字幕下载问题，更重要的是：
+
+- **探索了现代Web安全机制的边界**
+- **验证了Manifest V3扩展开发的最佳实践**
+- **为类似问题提供了完整的解决模板**
+- **展示了面对复杂技术挑战的系统性解决思路**
+
+### 未来发展
+
+基于这个突破性方案，PureSubs可以继续发展：
+
+1. **多平台支持**：将技术方案扩展到其他视频平台
+2. **功能增强**：实现批量下载、格式转换等高级功能
+3. **性能优化**：进一步提升拦截效率和解析速度
+4. **社区贡献**：将技术方案开源，帮助更多开发者
 
 ---
 
-*PureSubs Team - 持续创新，突破限制 🚀*
+*PureSubs Team - 突破限制，持续创新 🚀*
+
+**调试完成时间**：2025年8月26日  
+**最终方案**：chrome.scripting.executeScript API注入  
+**技术状态**：✅ 生产就绪

@@ -1,4 +1,4 @@
-/**
+更新那个迪巴克 Channel。 /**
  * Content Script for PureSubs Chrome Extension
  * 
  * This script injects the subtitle download button into YouTube video pages
@@ -8,6 +8,37 @@
 console.log('[PureSubs] Content script loaded and starting initialization');
 console.log('[PureSubs] Current URL:', location.href);
 console.log('[PureSubs] Document ready state:', document.readyState);
+
+// 🕵️ 情报缓存系统 - 存储间谍拦截的字幕数据
+interface SpyData {
+  url: string;
+  content: string;
+  videoId: string;
+  language: string;
+  format: string;
+  timestamp: number;
+}
+
+// 全局情报缓存 - 以videoId_language为key
+const subtitleCache = new Map<string, SpyData>();
+
+// 清理过期缓存的函数
+function cleanExpiredCache() {
+  const now = Date.now();
+  const expireTime = 5 * 60 * 1000; // 5分钟过期
+  
+  for (const [key, data] of subtitleCache.entries()) {
+    if (now - data.timestamp > expireTime) {
+      subtitleCache.delete(key);
+      console.log('[PureSubs] 🗑️ Cleaned expired cache for:', key);
+    }
+  }
+}
+
+// 获取缓存key
+function getCacheKey(videoId: string, language: string): string {
+  return `${videoId}_${language}`;
+}
 
 // 🕵️ 第一步：立即注入间谍脚本到页面环境
 injectSpyScript();
@@ -23,7 +54,6 @@ import {
 let currentVideoId: string | null = null;
 let downloadButton: HTMLElement | null = null;
 let isInitialized = false;
-let interceptedSubtitleData: any = null;
 
 // 监听来自间谍脚本的字幕数据
 window.addEventListener('message', (event) => {
@@ -31,16 +61,23 @@ window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   
   if (event.data?.type === 'PURESUBS_SUBTITLE_INTERCEPTED') {
-    const { data } = event.data;
-    console.log(`[PureSubs] 🎉 Received subtitle data from spy: ${data.videoId} (${data.language})`);
-    console.log(`[PureSubs] 📊 Data length: ${data.content?.length || 0}`);
+    const spyData: SpyData = event.data.data;
+    console.log('[PureSubs] 🎉 Received subtitle data from spy:', `${spyData.videoId} (${spyData.language})`);
+    console.log('[PureSubs] 📊 Data length:', spyData.content.length);
     
-    // 存储拦截到的数据
-    interceptedSubtitleData = data;
+    // 🗃️ 存入情报缓存
+    const cacheKey = getCacheKey(spyData.videoId, spyData.language);
+    subtitleCache.set(cacheKey, spyData);
+    
+    console.log('[PureSubs] 💾 Cached subtitle data for:', cacheKey);
+    console.log('[PureSubs] 📋 Current cache size:', subtitleCache.size);
+    
+    // 定期清理过期缓存
+    cleanExpiredCache();
     
     // 触发自定义事件通知其他组件
     const customEvent = new CustomEvent('puresubs-subtitle-available', {
-      detail: data
+      detail: spyData
     });
     document.dispatchEvent(customEvent);
   }
@@ -104,18 +141,32 @@ async function injectSpyScriptTraditional(): Promise<void> {
 }
 
 /**
- * 获取拦截到的字幕数据
+ * 🗃️ 从缓存获取拦截的字幕数据
  */
-function getInterceptedSubtitleData(videoId: string, language?: string): any {
-  if (!interceptedSubtitleData) return null;
+function getInterceptedSubtitleData(videoId: string, language?: string): SpyData | null {
+  // 清理过期缓存
+  cleanExpiredCache();
   
-  // 检查视频ID匹配
-  if (interceptedSubtitleData.videoId !== videoId) return null;
+  if (language) {
+    // 查找特定语言的字幕
+    const cacheKey = getCacheKey(videoId, language);
+    const data = subtitleCache.get(cacheKey);
+    if (data) {
+      console.log('[PureSubs] 🎯 Found cached subtitle for:', cacheKey);
+      return data;
+    }
+  }
   
-  // 如果指定了语言，检查语言匹配
-  if (language && interceptedSubtitleData.language !== language) return null;
+  // 如果没有指定语言，或者没找到特定语言，返回该视频的任意语言字幕
+  for (const [key, data] of subtitleCache.entries()) {
+    if (data.videoId === videoId) {
+      console.log('[PureSubs] 📝 Found cached subtitle (any language):', key);
+      return data;
+    }
+  }
   
-  return interceptedSubtitleData;
+  console.log('[PureSubs] ❌ No cached subtitle found for video:', videoId);
+  return null;
 }
 
 // Configuration
@@ -347,6 +398,76 @@ interface SmartDownloadResult {
 
 async function smartDownloadSubtitles(preferences: UserPreferences): Promise<SmartDownloadResult> {
   try {
+    // 🔍 第一步：检查缓存中是否有可用的字幕数据
+    console.log('[PureSubs] 🔍 Checking subtitle cache first...');
+    
+    const videoId = currentVideoId;
+    if (!videoId) {
+      return { success: false, error: 'NO_VIDEO_ID' };
+    }
+    
+    // 尝试从缓存获取字幕数据
+    let cachedData = getInterceptedSubtitleData(videoId, preferences.preferredLanguage);
+    if (!cachedData) {
+      // 尝试获取任意语言的缓存数据
+      cachedData = getInterceptedSubtitleData(videoId);
+    }
+    
+    if (cachedData) {
+      console.log('[PureSubs] 🎉 Found cached subtitle data! Using cached version.');
+      console.log('[PureSubs] 📋 Language:', cachedData.language, 'Format:', cachedData.format);
+      
+      // 解析缓存的字幕数据
+      const interceptorModule = await import('../core/subtitle-interceptor');
+      const engineModule = await import('../core/browser-engine');
+      
+      const { parseJSON3Subtitles } = interceptorModule;
+      const { parseSubtitleXML, convertToSRT, convertToTXT } = engineModule;
+      
+      let entries: any[] = [];
+      
+      if (cachedData.format === 'json3' || cachedData.content.includes('"events"')) {
+        entries = parseJSON3Subtitles(cachedData.content);
+      } else if (cachedData.content.includes('<transcript>') || cachedData.content.includes('<text')) {
+        entries = parseSubtitleXML(cachedData.content);
+      } else {
+        // 尝试作为JSON解析
+        try {
+          const jsonData = JSON.parse(cachedData.content);
+          if (jsonData.events) {
+            entries = parseJSON3Subtitles(cachedData.content);
+          }
+        } catch {
+          console.warn('[PureSubs] ⚠️ Unknown subtitle format, treating as plain text');
+          entries = [{
+            start: 0,
+            end: 10,
+            text: cachedData.content
+          }];
+        }
+      }
+      
+      if (entries.length > 0) {
+        let content = '';
+        if (preferences.preferredFormat === 'srt') {
+          content = convertToSRT(entries);
+        } else {
+          content = convertToTXT(entries);
+        }
+        
+        return {
+          success: true,
+          content: content,
+          title: `YouTube Video ${videoId}`,
+          actualLanguage: cachedData.language,
+          isAutoGenerated: false
+        };
+      }
+    }
+    
+    // 🔄 第二步：如果缓存中没有数据，使用原有逻辑获取
+    console.log('[PureSubs] 📡 No cached data found, fetching from YouTube...');
+    
     // Step 1: Get all available subtitles (without extracting content yet)
     const videoData = await getYouTubeDataFromPage({
       extractSubtitles: false,

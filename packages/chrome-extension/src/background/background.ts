@@ -81,6 +81,15 @@ function spyFunction() {
    */
   function extractMetadata(url: any) {
     try {
+      // 只处理包含timedtext的完整URL
+      if (typeof url !== 'string' || !url.includes('/api/timedtext')) {
+        return {
+          videoId: 'unknown',
+          language: 'unknown',
+          format: 'unknown'
+        };
+      }
+      
       const urlObj = new URL(url);
       const params = urlObj.searchParams;
       
@@ -90,10 +99,10 @@ function spyFunction() {
         format: params.get('fmt') || 'unknown'
       };
     } catch (error) {
-      console.error('[PureSubs Spy] Error parsing URL:', error);
+      console.warn('[PureSubs Spy] Error parsing URL, using defaults:', error);
       return {
         videoId: 'unknown',
-        language: 'unknown', 
+        language: 'unknown',
         format: 'unknown'
       };
     }
