@@ -163,66 +163,64 @@ export function extractSubtitleTracks(playerResponse: any): SubtitleTrack[] {
 export async function fetchSubtitleXML(subtitleUrl: string): Promise<string> {
   try {
     console.log('[PureSubs] Fetching subtitle XML from:', subtitleUrl);
-    
-    // First, try the original URL as-is
+
+    // 首先，直接尝试原始URL
     const response = await fetch(subtitleUrl);
     console.log('[PureSubs] Fetch response status:', response.status, response.statusText);
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const xmlContent = await response.text();
     console.log('[PureSubs] Fetched XML content length:', xmlContent.length);
     console.log('[PureSubs] XML content preview:', xmlContent.substring(0, 500));
-    
-    // If we get empty content, it might be due to the 'caps=asr' parameter
-    // Try constructing a new URL without problematic parameters but keeping the signature valid
+
+    // 如果返回内容为空，则尝试备用方案
     if (xmlContent.length === 0) {
       console.log('[PureSubs] Empty response with original URL, trying alternative approach...');
-      
-      // Parse the URL to extract key parameters
       const url = new URL(subtitleUrl);
       const videoId = url.searchParams.get('v');
       const lang = url.searchParams.get('lang');
-      
+
       if (videoId && lang) {
-        // Try a simplified URL format that might work
-        const simpleUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`;
-        console.log('[PureSubs] Trying simplified URL:', simpleUrl);
-        
-        try {
-          const simpleResponse = await fetch(simpleUrl);
-          if (simpleResponse.ok) {
-            const simpleContent = await simpleResponse.text();
-            console.log('[PureSubs] Simplified URL response length:', simpleContent.length);
-            if (simpleContent.length > 0) {
-              return simpleContent;
+        // 构建多种可能的备用URL格式
+        const alternativeUrls = [
+          // srv3 格式 (最常用)
+          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`,
+          // srv1 格式
+          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&fmt=srv1`,
+          // 最基础格式
+          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}`,
+          // 带名称的格式 (有时需要)
+          `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}&name=`,
+          // 尝试不同的域名
+          `https://video.google.com/timedtext?v=${videoId}&lang=${lang}&fmt=srv3`
+        ];
+
+        for (let i = 0; i < alternativeUrls.length; i++) {
+          const altUrl = alternativeUrls[i];
+          console.log(`[PureSubs] Trying alternative URL ${i + 1}:`, altUrl);
+          
+          try {
+            const altResponse = await fetch(altUrl);
+            if (altResponse.ok) {
+              const altContent = await altResponse.text();
+              console.log(`[PureSubs] Alternative URL ${i + 1} response length:`, altContent.length);
+              if (altContent.length > 0) {
+                console.log(`[PureSubs] Success with alternative URL ${i + 1}!`);
+                return altContent;
+              }
             }
+          } catch (e) { 
+            console.log(`[PureSubs] Alternative URL ${i + 1} failed:`, e); 
           }
-        } catch (simpleError) {
-          console.log('[PureSubs] Simplified URL failed:', simpleError);
         }
         
-        // Try without fmt parameter
-        const basicUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${lang}`;
-        console.log('[PureSubs] Trying basic URL:', basicUrl);
-        
-        try {
-          const basicResponse = await fetch(basicUrl);
-          if (basicResponse.ok) {
-            const basicContent = await basicResponse.text();
-            console.log('[PureSubs] Basic URL response length:', basicContent.length);
-            if (basicContent.length > 0) {
-              return basicContent;
-            }
-          }
-        } catch (basicError) {
-          console.log('[PureSubs] Basic URL failed:', basicError);
-        }
+        console.log('[PureSubs] All alternative URLs failed, returning empty content');
       }
     }
-    
+
     return xmlContent;
   } catch (error) {
     console.error('[PureSubs] Failed to fetch subtitle XML:', error);
@@ -237,82 +235,68 @@ export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
   try {
     console.log('[PureSubs] Parsing subtitle XML, content length:', xmlContent.length);
     const entries: SubtitleEntry[] = [];
-    
-    // Multiple regex patterns for different YouTube subtitle XML formats
+
+    // 一个更全面的正则表达式数组，以应对多种YouTube字幕格式
     const textPatterns = [
-      // Standard format: <text start="12.34" dur="2.5">Hello world</text>
+      // 标准格式: <text start="12.34" dur="2.5">Hello world</text>
       /<text start="([^"]+)"(?:\s+dur="([^"]+)")?>([^<]*)<\/text>/g,
-      // Self-closing format with more attributes
-      /<text[^>]+start="([^"]+)"[^>]*(?:dur="([^"]+)")?[^>]*>([^<]*)<\/text>/g,
-      // Alternative format with different attributes order
-      /<text[^>]*start="([^"]+)"[^>]*>([^<]*)<\/text>/g,
-      // srv3 format: <p t="12340" d="2500">Hello world</p>
+      // srv3 格式 (毫秒): <p t="12340" d="2500">Hello world</p>
       /<p t="([^"]+)"(?:\s+d="([^"]+)")?>([^<]*)<\/p>/g,
-      // srv1 format with different structure
+      // 包含更多属性的格式
+      /<text[^>]+start="([^"]+)"[^>]*(?:dur="([^"]+)")?[^>]*>([^<]*)<\/text>/g,
+      // srv1 格式 with t/d attributes
       /<text[^>]*t="([^"]+)"[^>]*(?:d="([^"]+)")?[^>]*>([^<]*)<\/text>/g,
-      // More flexible pattern for any timing attribute
+      // 一个更灵活的"最终防线"模式，匹配 text 或 p 标签
       /<(?:text|p)[^>]*(?:start|t)="([^"]+)"[^>]*(?:(?:dur|d)="([^"]+)")?[^>]*>([^<]*)<\/(?:text|p)>/g
     ];
-    
+
     let matchCount = 0;
-    
-    // Try each pattern until we find matches
+
+    // 依次尝试每个正则表达式，直到成功解析出内容
     for (const textRegex of textPatterns) {
       console.log('[PureSubs] Trying pattern:', textRegex);
-      textRegex.lastIndex = 0; // Reset regex state
-      
+      textRegex.lastIndex = 0; // 重置正则状态
+
       let match;
       while ((match = textRegex.exec(xmlContent)) !== null) {
         matchCount++;
         let start = parseFloat(match[1]);
-        
-        // Handle different match group arrangements
-        let duration = 0;
-        let rawText = '';
-        
-        if (match.length === 4) {
-          // Pattern with dur group
-          duration = match[2] ? parseFloat(match[2]) : 0;
-          rawText = match[3];
-        } else if (match.length === 3) {
-          // Pattern without dur group  
-          rawText = match[2];
-        }
-        
-        // Convert milliseconds to seconds if needed (srv3 format uses milliseconds)
-        if (start > 10000) {
-          // Likely milliseconds, convert to seconds
-          start = start / 1000;
+        let duration = match[2] ? parseFloat(match[2]) : 2.0; // 默认2秒时长
+        let rawText = match[3];
+
+        // srv3格式使用毫秒，需要转换
+        if (start > 10000) { // 如果开始时间大于10000，基本可以断定是毫秒
+          start /= 1000;
           if (duration > 0) {
-            duration = duration / 1000;
+            duration /= 1000;
           }
         }
-        
+
         const text = cleanSubtitleText(rawText);
-        
+
         if (matchCount <= 5) {
           console.log(`[PureSubs] Match ${matchCount}:`, { start, duration, rawText, cleanedText: text });
         }
-        
+
         if (text.trim()) {
           entries.push({
             start: start,
-            end: start + (duration || 2), // Default 2-second duration if not specified
+            end: start + duration,
             text: text
           });
         }
       }
-      
-      // If we found matches with this pattern, break
+
+      // 如果当前正则表达式已经找到了匹配项，就无需尝试下一个了
       if (matchCount > 0) {
         console.log(`[PureSubs] Successfully used pattern: ${textRegex}, found ${matchCount} matches`);
         break;
       }
     }
-    
-    console.log(`[PureSubs] Found ${matchCount} text matches, ${entries.length} valid entries`);
-    
-    // Sort entries by start time
+
+    console.log(`[PureSubs] Found ${matchCount} total matches, parsed ${entries.length} valid entries`);
+
+    // 确保按开始时间排序
     const sortedEntries = entries.sort((a, b) => a.start - b.start);
     console.log('[PureSubs] First 3 parsed entries:', sortedEntries.slice(0, 3));
     return sortedEntries;
@@ -327,16 +311,21 @@ export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
  */
 export function cleanSubtitleText(text: string): string {
   if (!text) return '';
-  
+
   return text
-    // Remove HTML tags
-    .replace(/<[^>]*>/g, '')
-    // Decode HTML entities
+    // Decode common HTML entities (order matters - do this first)
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    // Decode numeric entities
+    .replace(/&#(\d+);/g, (match, num) => String.fromCharCode(parseInt(num, 10)))
+    .replace(/&#x([a-fA-F0-9]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
+    // Remove HTML tags
+    .replace(/<[^>]*>/g, '')
     // Clean up extra whitespace
     .replace(/\s+/g, ' ')
     .trim();
