@@ -6,17 +6,49 @@
 console.log('[PureSubs Background] Service worker started');
 
 // 监听来自内容脚本的消息
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('[PureSubs Background] Received message:', message.type);
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log('[PureSubs Background] Received message:', request.action || request.type);
   
-  if (message.type === 'INJECT_SPY_SCRIPT') {
-    handleSpyScriptInjection(sender.tab?.id, message.url)
+  if (request.type === 'INJECT_SPY_SCRIPT') {
+    handleSpyScriptInjection(sender.tab?.id, request.url)
       .then(result => sendResponse(result))
       .catch(error => sendResponse({ success: false, error: error.message }));
     
     return true; // 保持消息通道开放
   }
   
+  // 🔧 黄金标准：处理字幕文件下载请求
+  if (request.action === 'downloadSubtitleFile') {
+    console.log('[PureSubs Background] 📥 Received download request:', request.filename);
+    console.log('[PureSubs Background] 📊 Received data URL:', request.url?.substring(0, 50) + '...');
+    
+    try {
+      // 直接使用内容脚本传来的data URL进行下载
+      chrome.downloads.download({
+        url: request.url, // 使用传入的data URL，不需要创建blob
+        filename: request.filename,
+        saveAs: true // 打开"另存为"对话框
+      }, (downloadId) => {
+        // 📋 下载开始后的回调 - 这是异步操作完成的地方
+        if (chrome.runtime.lastError) {
+          console.error('[PureSubs Background] ❌ Download failed:', chrome.runtime.lastError);
+          sendResponse({ success: false, error: chrome.runtime.lastError.message });
+        } else {
+          console.log('[PureSubs Background] ✅ Download started successfully, ID:', downloadId);
+          sendResponse({ success: true, downloadId: downloadId });
+        }
+      });
+      
+    } catch (error) {
+      console.error('[PureSubs Background] ❌ Error creating download:', error);
+      sendResponse({ success: false, error: String(error) });
+    }
+    
+    // 🔑 关键：返回true表示我们将异步发送响应
+    return true;
+  }
+  
+  // 如果消息不是给我们的，什么都不做
   return false;
 });
 

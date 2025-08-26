@@ -629,50 +629,70 @@ function generateFilename(title: string, format: string, language?: string): str
 /**
  * Trigger file download
  */
-async function triggerDownload(content: string, filename: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    try {
-      if (typeof chrome === 'undefined' || !chrome.runtime) {
-        console.error('[PureSubs] Chrome runtime API not available');
-        reject(new Error('Chrome extension APIs not available'));
-        return;
-      }
+/**
+ * 🔧 黄金标准：发送下载消息给后台脚本
+ */
+async function sendDownloadMessage(filename: string, content: string): Promise<void> {
+  console.log('[PureSubs] 📤 Sending download message to background script');
+  console.log('[PureSubs] 📁 Filename:', filename);
+  console.log('[PureSubs] � Content length:', content.length);
+  
+  try {
+    // Step 1: Create the Blob in the content script (where DOM APIs are available)
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
 
-      console.log('[PureSubs] Creating download blob, content length:', content.length);
-      console.log('[PureSubs] Filename:', filename);
-      
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      
-      console.log('[PureSubs] Sending download message to background script');
-      
-      chrome.runtime.sendMessage({
-        type: 'DOWNLOAD_FILE',
-        payload: { url, filename }
-      }, (response) => {
-        URL.revokeObjectURL(url);
-        
-        if (chrome.runtime.lastError) {
-          console.error('[PureSubs] Runtime error:', chrome.runtime.lastError);
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        
-        console.log('[PureSubs] Download response:', response);
-        
-        if (response && response.success) {
-          console.log('[PureSubs] Download triggered successfully');
-          resolve();
-        } else {
-          console.error('[PureSubs] Download failed:', response?.error);
-          reject(new Error(response?.error || 'Download failed'));
-        }
-      });
-    } catch (error) {
-      console.error('[PureSubs] Error in triggerDownload:', error);
-      reject(error);
+    // Step 2: Convert the Blob to a data: URL using FileReader
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+
+    // Step 3: Wait for FileReader to complete (Promise wrapper)
+    const dataUrl = await new Promise<string>((resolve) => {
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+    });
+
+    console.log('[PureSubs] 📦 Created data URL for download:', dataUrl.substring(0, 50) + '...');
+
+    // Step 4: Send the DATA URL to the background script (not raw content)
+    const response = await chrome.runtime.sendMessage({
+      action: "downloadSubtitleFile",
+      filename: filename,
+      url: dataUrl // Send the URL, not the content
+    });
+
+    if (response && response.success) {
+      console.log('[PureSubs] ✅ Download initiated successfully by background script.', response);
+    } else {
+      // 捕获后台脚本发回的错误
+      console.error('[PureSubs] ❌ Background script reported a download error:', response?.error);
+      throw new Error(response?.error || 'Unknown download error');
     }
-  });
+  } catch (error) {
+    // 捕获"端口关闭"错误或其他通信错误
+    console.error('[PureSubs] ❌ Download communication failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Trigger file download - 简化版本，使用新的通信模式
+ */
+async function triggerDownload(content: string, filename: string): Promise<void> {
+  try {
+    if (typeof chrome === 'undefined' || !chrome.runtime) {
+      throw new Error('Chrome extension APIs not available');
+    }
+
+    // 🔧 使用黄金标准通信模式
+    await sendDownloadMessage(filename, content);
+    
+    console.log('[PureSubs] ✅ Download process completed successfully');
+    
+  } catch (error) {
+    console.error('[PureSubs] ❌ Error in triggerDownload:', error);
+    throw error;
+  }
 }
 
 /**
