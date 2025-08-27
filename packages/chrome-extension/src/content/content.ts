@@ -380,9 +380,9 @@ function init(): void {
   // Wait for YouTube to load
   waitForElement('#movie_player').then((element) => {
     console.log('[PureSubs] Found #movie_player element:', element);
-    console.log('[PureSubs] Setting up video watcher and injecting button...');
+    console.log('[PureSubs] Setting up video watcher and injecting button with prophet mode...');
     setupVideoWatcher();
-    injectDownloadButton();
+    injectDownloadButtonWithProphetMode(); // 🔮 关键修复：使用先知模式检查
     isInitialized = true;
     console.log('[PureSubs] Initialization completed successfully');
   }).catch((error) => {
@@ -496,8 +496,9 @@ function injectDownloadButtonWithProphetMode(): void {
     console.log('[PureSubs] Prophet mode: Subtitles available, proceeding with button creation');
     injectDownloadButton();
   } catch (error) {
-    console.warn('[PureSubs] Prophet mode check failed, falling back to regular injection:', error);
-    injectDownloadButton();
+    console.error('[PureSubs] Prophet mode check failed:', error);
+    // 不再无条件注入按钮，而是通知用户初始化失败
+    showError('PureSubs failed to initialize. Please refresh the page.');
   }
 }
 

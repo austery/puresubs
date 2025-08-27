@@ -4,6 +4,29 @@
 
 用户发现了一个重要的状态污染问题：当从有字幕的视频切换到无字幕的视频时，扩展会下载错误的字幕。这是因为缓存中保留了上一个视频的字幕数据。
 
+## 🚨 关键Bug发现与修复 Critical Bug Discovery & Fix
+
+### 逻辑缺陷：初始化"后门"问题
+
+**问题分析：**
+
+- 首次页面加载：`init()` → `injectDownloadButton()` (❌ 无先知检查)
+- 页面内导航：`handleVideoChange()` → `injectDownloadButtonWithProphetMode()` (✅ 有先知检查)
+- **结果：行为不一致！**
+
+**根本原因：**
+`init()` 函数直接调用了 `injectDownloadButton()` 而不是 `injectDownloadButtonWithProphetMode()`，创造了一个绕过先知检查的"后门"。
+
+**修复方案：**
+
+```typescript
+// 修复前 (init函数中)
+injectDownloadButton(); // ❌ 绕过检查
+
+// 修复后 (init函数中)  
+injectDownloadButtonWithProphetMode(); // ✅ 统一检查
+```
+
 ## 解决方案 Solution
 
 ### 1. 状态污染清理 State Pollution Cleanup
@@ -40,10 +63,27 @@ function injectDownloadButtonWithProphetMode(): void {
     console.log('[PureSubs] Prophet mode: Subtitles available, proceeding with button creation');
     injectDownloadButton();
   } catch (error) {
-    console.warn('[PureSubs] Prophet mode check failed, falling back to regular injection:', error);
-    injectDownloadButton();
+    console.error('[PureSubs] Prophet mode check failed:', error);
+    // 不再无条件注入按钮，而是通知用户初始化失败
+    showError('PureSubs failed to initialize. Please refresh the page.');
   }
 }
+```
+
+### 3. 统一初始化逻辑 Unified Initialization Logic
+
+**修复前 (存在后门):**
+
+```typescript
+// init() 函数中
+injectDownloadButton(); // ❌ 绕过先知检查
+```
+
+**修复后 (堵住后门):**
+
+```typescript  
+// init() 函数中
+injectDownloadButtonWithProphetMode(); // ✅ 统一使用先知检查
 ```
 
 ## 功能特点 Key Features
