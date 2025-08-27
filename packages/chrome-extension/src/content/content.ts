@@ -121,23 +121,119 @@ function getCacheKey(videoId: string, language: string): string {
   return `${videoId}_${language}`;
 }
 
-// 🕵️ 第一步：立即注入间谍脚本到页面环境
-injectSpyScript();
-
 import { 
   getYouTubeDataFromPage, 
   selectBestSubtitle 
 } from '../core/browser-engine';
 
+// 🎯 按钮状态管理 - 实现用户预期管理系统
+type ButtonState = 'disabled' | 'ready' | 'loading' | 'success' | 'error';
+
 // State management
 let currentVideoId: string | null = null;
 let downloadButton: HTMLElement | null = null;
 let isInitialized = false;
+let buttonState: ButtonState = 'disabled';
+let spyScriptReady = false;
 
-// 监听来自间谍脚本的字幕数据
+// 🎯 按钮状态管理函数
+function setButtonState(newState: ButtonState, message?: string): void {
+  if (!downloadButton) return;
+  
+  buttonState = newState;
+  
+  // 清除所有状态类
+  downloadButton.classList.remove('disabled', 'ready', 'loading', 'success', 'error');
+  
+  // 添加新状态类
+  downloadButton.classList.add(newState);
+  
+  // 根据状态更新按钮内容和行为
+  switch (newState) {
+    case 'disabled':
+      updateButtonContent('waiting', '初始化中...');
+      break;
+    case 'ready':
+      updateButtonContent('ready', 'Download Subtitles');
+      break;
+    case 'loading':
+      updateButtonContent('loading', message || 'Processing...');
+      break;
+    case 'success':
+      updateButtonContent('success', message || 'Success!');
+      // 2秒后回到就绪状态
+      setTimeout(() => setButtonState('ready'), 2000);
+      break;
+    case 'error':
+      updateButtonContent('error', message || 'Error');
+      // 3秒后回到就绪状态
+      setTimeout(() => setButtonState('ready'), 3000);
+      break;
+  }
+}
+
+// 🎯 更新按钮显示内容
+function updateButtonContent(type: string, text: string): void {
+  if (!downloadButton) return;
+  
+  const icons = {
+    waiting: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="pulse">
+      <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z" />
+    </svg>`,
+    ready: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="status-icon ready">
+      <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+    </svg>`,
+    loading: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="spinner">
+      <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z" />
+    </svg>`,
+    success: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z" />
+    </svg>`,
+    error: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,7A1.5,1.5 0 0,0 10.5,8.5V13A1.5,1.5 0 0,0 12,14.5A1.5,1.5 0 0,0 13.5,13V8.5A1.5,1.5 0 0,0 12,7M12,17.5A1.5,1.5 0 0,0 10.5,19A1.5,1.5 0 0,0 12,20.5A1.5,1.5 0 0,0 13.5,19A1.5,1.5 0 0,0 12,17.5Z" />
+    </svg>`
+  };
+  
+  downloadButton.innerHTML = `
+    ${icons[type as keyof typeof icons] || icons.ready}
+    <span>${text}</span>
+  `;
+}
+
+// 监听来自间谍脚本的字幕数据和就绪状态
 window.addEventListener('message', (event) => {
+  // 🔍 广撒网式日志 - 捕获所有传入的消息
+  console.log('[PureSubs Content] Received a postMessage event, data:', event.data);
+  
   // 只处理来自同一窗口的消息
-  if (event.source !== window) return;
+  if (event.source !== window) {
+    console.log('[PureSubs Content] ❌ Message source is not window, ignoring');
+    return;
+  }
+  
+  // 🎯 处理间谍脚本就绪通知
+  if (event.data?.type === 'PURESUBS_SPY_READY') {
+    console.log('[PureSubs Content] ✅ SUCCESS! Correct READY signal received. Enabling button...');
+    console.log('[PureSubs Content] 🔍 Current button state before change:', buttonState);
+    console.log('[PureSubs Content] 🔍 Button element exists:', !!downloadButton);
+    
+    spyScriptReady = true;
+    
+    // 如果按钮已创建但还在禁用状态，现在启用它
+    if (downloadButton && buttonState === 'disabled') {
+      console.log('[PureSubs Content] 🎯 Conditions met, changing button state to ready');
+      setButtonState('ready');
+      showInfo('PureSubs 已就绪，可以下载字幕了！');
+      console.log('[PureSubs Content] ✅ Button state changed and notification sent');
+    } else {
+      console.log('[PureSubs Content] ⚠️ Button conditions not met:', {
+        buttonExists: !!downloadButton,
+        currentState: buttonState,
+        expectedState: 'disabled'
+      });
+    }
+    return;
+  }
   
   if (event.data?.type === 'PURESUBS_SUBTITLE_INTERCEPTED') {
     const spyData: SpyData = event.data.data;
@@ -168,6 +264,10 @@ window.addEventListener('message', (event) => {
     console.log('[PureSubs] 📊 Spy status:', event.data.data);
   }
 });
+
+// 🎯 重要：在设置好消息监听器之后，再注入间谍脚本
+console.log('[PureSubs] 🎯 Message listener set up, now injecting spy script...');
+injectSpyScript();
 
 /**
  * 🔑 使用官方API注入间谍脚本到主页面上下文 (Manifest V3)
@@ -384,7 +484,7 @@ async function injectDownloadButton(): Promise<void> {
       return;
     }
     
-    // Create download button
+    // Create download button (initially disabled)
     downloadButton = createDownloadButton();
     
     // Insert button into the actions container
@@ -397,23 +497,32 @@ async function injectDownloadButton(): Promise<void> {
     
     console.log('[PureSubs] Download button injected');
     
+    // 🎯 检查间谍脚本是否已经就绪
+    if (spyScriptReady) {
+      console.log('[PureSubs] Spy script was already ready, enabling button');
+      setButtonState('ready');
+    } else {
+      console.log('[PureSubs] Waiting for spy script to be ready...');
+      setButtonState('disabled');
+      // 可选：显示等待提示
+      showInfo('正在初始化字幕拦截系统...');
+    }
+    
   } catch (error) {
     console.error('[PureSubs] Failed to inject download button:', error);
   }
 }
 
 /**
- * Create the download button element
+ * Create the download button element with initial disabled state
  */
 function createDownloadButton(): HTMLElement {
   const button = document.createElement('button');
-  button.className = 'puresubs-download-btn';
-  button.innerHTML = `
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-    </svg>
-    <span>Download Subtitles</span>
-  `;
+  button.className = 'puresubs-download-btn disabled'; // 🚫 初始状态为禁用
+  
+  // 🎯 使用状态管理系统设置初始状态
+  downloadButton = button;
+  setButtonState('disabled');
   
   button.addEventListener('click', handleDownloadClick);
   
@@ -421,23 +530,21 @@ function createDownloadButton(): HTMLElement {
 }
 
 /**
- * Handle download button click
+ * Handle download button click with improved state management
  */
 async function handleDownloadClick(event: Event): Promise<void> {
   event.preventDefault();
   event.stopPropagation();
   
-  const button = event.currentTarget as HTMLElement;
+  // 🚫 防范性检查：只有在就绪状态才允许操作
+  if (buttonState !== 'ready') {
+    console.log('[PureSubs] Button not ready, ignoring click. Current state:', buttonState);
+    return;
+  }
   
   try {
-    // Show loading state
-    button.classList.add('loading');
-    button.innerHTML = `
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" class="spinning">
-        <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z" />
-      </svg>
-      <span>Loading...</span>
-    `;
+    // 🔄 设置为加载状态
+    setButtonState('loading', '正在获取字幕...');
     
     // Get user preferences
     const preferences = await getUserPreferences();
@@ -449,18 +556,13 @@ async function handleDownloadClick(event: Event): Promise<void> {
       await showLanguageSelector();
     }
     
+    // 🎉 设置为成功状态
+    setButtonState('success', '下载完成！');
+    
   } catch (error) {
     console.error('[PureSubs] Download failed:', error);
+    setButtonState('error', '下载失败，请重试');
     showError('Failed to download subtitles. Please try again.');
-  } finally {
-    // Reset button state
-    button.classList.remove('loading');
-    button.innerHTML = `
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-      </svg>
-      <span>Download Subtitles</span>
-    `;
   }
 }
 
@@ -482,6 +584,9 @@ async function smartDownloadSubtitles(preferences: UserPreferences): Promise<Sma
   try {
     // 🔍 第一步：检查缓存中是否有可用的字幕数据
     console.log('[PureSubs] 🔍 Checking subtitle cache first...');
+    
+    // 🔄 进度反馈：设置为搜索缓存状态
+    if (downloadButton) setButtonState('loading', '正在搜索缓存字幕...');
     
     const videoId = currentVideoId;
     if (!videoId) {
@@ -506,7 +611,7 @@ async function smartDownloadSubtitles(preferences: UserPreferences): Promise<Sma
       const { parseJSON3Subtitles } = interceptorModule;
       const { parseSubtitleXML, convertToSRT, convertToTXT } = engineModule;
       
-      let entries: any[] = [];
+      let entries: Array<{ start: number; end: number; text: string; dur?: number }> = [];
       
       if (cachedData.format === 'json3' || cachedData.content.includes('"events"')) {
         entries = parseJSON3Subtitles(cachedData.content);
@@ -776,32 +881,69 @@ async function triggerDownload(content: string, filename: string): Promise<void>
 }
 
 /**
- * Show success message
+ * Show success message with green notification
  */
 function showSuccess(message: string): void {
   showNotification(message, 'success');
 }
 
 /**
- * Show error message
+ * Show error message with red notification
  */
 function showError(message: string): void {
   showNotification(message, 'error');
 }
 
 /**
- * Show notification to user
+ * Show info message with blue notification
  */
-function showNotification(message: string, type: 'success' | 'error'): void {
+function showInfo(message: string): void {
+  showNotification(message, 'info');
+}
+
+/**
+ * Show warning message with orange notification
+ */
+function showWarning(message: string): void {
+  showNotification(message, 'warning');
+}
+
+/**
+ * Show notification to user with enhanced visual feedback
+ */
+function showNotification(message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info'): void {
   const notification = document.createElement('div');
   notification.className = `puresubs-notification puresubs-notification--${type}`;
-  notification.textContent = message;
+  
+  // 选择合适的图标
+  const icons = {
+    success: `<svg class="puresubs-notification-icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z" />
+    </svg>`,
+    error: `<svg class="puresubs-notification-icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,7A1.5,1.5 0 0,0 10.5,8.5V13A1.5,1.5 0 0,0 12,14.5A1.5,1.5 0 0,0 13.5,13V8.5A1.5,1.5 0 0,0 12,7M12,17.5A1.5,1.5 0 0,0 10.5,19A1.5,1.5 0 0,0 12,20.5A1.5,1.5 0 0,0 13.5,19A1.5,1.5 0 0,0 12,17.5Z" />
+    </svg>`,
+    info: `<svg class="puresubs-notification-icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,7A1.5,1.5 0 0,0 10.5,8.5A1.5,1.5 0 0,0 12,10A1.5,1.5 0 0,0 13.5,8.5A1.5,1.5 0 0,0 12,7M10.5,12A1.5,1.5 0 0,0 12,13.5A1.5,1.5 0 0,0 13.5,12A1.5,1.5 0 0,0 12,10.5A1.5,1.5 0 0,0 10.5,12Z" />
+    </svg>`,
+    warning: `<svg class="puresubs-notification-icon" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" />
+    </svg>`
+  };
+  
+  notification.innerHTML = `
+    ${icons[type]}
+    <span>${message}</span>
+  `;
   
   document.body.appendChild(notification);
   
-  // Auto-remove after 3 seconds
+  // 优雅的退出动画
   setTimeout(() => {
-    notification.remove();
+    notification.classList.add('fade-out');
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
   }, 3000);
 }
 

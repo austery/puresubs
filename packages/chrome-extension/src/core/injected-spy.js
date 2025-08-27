@@ -16,6 +16,27 @@
   // 标记是否已经拦截到字幕数据
   let subtitleDataIntercepted = false;
   
+  // 🎯 发送就绪通知给内容脚本
+  function notifyReady() {
+    console.log('[PureSubs Spy] �️ Spy is alive and has patched fetch. Sending READY signal now!');
+    window.postMessage({
+      type: 'PURESUBS_SPY_READY',
+      timestamp: Date.now()
+    }, '*');
+    console.log('[PureSubs Spy] ✅ READY signal has been sent.');
+    
+    // 额外的调试信息
+    console.log('[PureSubs Spy] 🔍 window.postMessage function:', typeof window.postMessage);
+    console.log('[PureSubs Spy] 🔍 Signal data:', { type: 'PURESUBS_SPY_READY', timestamp: Date.now() });
+  }
+  
+  // 初始化完成后立即发送就绪通知
+  console.log('[PureSubs Spy] ⏰ Setting up ready notification timer...');
+  setTimeout(() => {
+    console.log('[PureSubs Spy] ⏰ Timer fired, calling notifyReady()');
+    notifyReady();
+  }, 100);
+  
   /**
    * 覆盖原生fetch函数 - 这是关键的"窃听"技术
    */
@@ -206,5 +227,12 @@
   }
   
   console.log('[PureSubs Spy] 🚀 Agent fully initialized and monitoring network requests');
+  
+  // 🎯 在脚本的最后，再次发送就绪信号（以防第一次信号在监听器设置前发送）
+  console.log('[PureSubs Spy] 🔄 Sending final ready notification...');
+  setTimeout(() => {
+    console.log('[PureSubs Spy] 🔄 Final ready signal firing now!');
+    notifyReady();
+  }, 500);
   
 })();

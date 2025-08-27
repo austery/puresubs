@@ -20,20 +20,54 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  position: relative;
 }
 
-.puresubs-download-btn:hover {
-  background: var(--yt-spec-badge-chip-background);
-  border-color: var(--yt-spec-10-percent-layer);
+/* 🚫 层级一：禁用状态 (初始化/等待间谍脚本就绪) */
+.puresubs-download-btn.disabled {
+  pointer-events: none;
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: #ddd;
+  color: #999;
 }
 
-.puresubs-download-btn:active {
-  transform: scale(0.98);
+/* ✅ 层级一：就绪状态 (间谍脚本已就绪，可以操作) */
+.puresubs-download-btn.ready {
+  border-color: #1976d2;
+  color: #1976d2;
 }
 
+.puresubs-download-btn.ready:hover {
+  background: rgba(25, 118, 210, 0.08);
+  border-color: #1565c0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.2);
+}
+
+.puresubs-download-btn.ready:active {
+  transform: scale(0.98) translateY(0);
+}
+
+/* 🔄 层级二：加载状态 (正在处理用户请求) */
 .puresubs-download-btn.loading {
   pointer-events: none;
-  opacity: 0.7;
+  border-color: #1976d2;
+  color: #1976d2;
+  background: rgba(25, 118, 210, 0.04);
+}
+
+/* 🎉 成功状态 (短暂显示，然后回到就绪状态) */
+.puresubs-download-btn.success {
+  border-color: #4caf50;
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.08);
+}
+
+/* 默认悬停状态 (仅在非禁用/非加载时生效) */
+.puresubs-download-btn:not(.disabled):not(.loading):hover {
+  background: var(--yt-spec-badge-chip-background);
+  border-color: var(--yt-spec-10-percent-layer);
 }
 
 .puresubs-download-btn svg {
@@ -42,13 +76,38 @@
   flex-shrink: 0;
 }
 
-.puresubs-download-btn .spinning {
+/* 改进的加载动画 */
+.puresubs-download-btn .spinner {
   animation: spin 1s linear infinite;
+}
+
+.puresubs-download-btn .pulse {
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 状态指示图标 */
+.puresubs-download-btn .status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.puresubs-download-btn .status-icon.ready {
+  color: #4caf50;
+}
+
+.puresubs-download-btn .status-icon.loading {
+  color: #1976d2;
 }
 
 /* Dark theme support */
@@ -58,45 +117,145 @@
     color: #fff;
   }
   
-  .puresubs-download-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: #909090;
+  .puresubs-download-btn.disabled {
+    border-color: #525252;
+    color: #888;
+  }
+  
+  .puresubs-download-btn.ready {
+    border-color: #42a5f5;
+    color: #42a5f5;
+  }
+  
+  .puresubs-download-btn.ready:hover {
+    background: rgba(66, 165, 245, 0.1);
+    border-color: #1e88e5;
+  }
+  
+  .puresubs-download-btn.loading {
+    border-color: #42a5f5;
+    color: #42a5f5;
+    background: rgba(66, 165, 245, 0.06);
+  }
+  
+  .puresubs-download-btn.success {
+    border-color: #66bb6a;
+    color: #66bb6a;
+    background: rgba(102, 187, 106, 0.1);
   }
 }
 
-/* YouTube-specific theme support */
+/* YouTube-specific dark theme support */
 [dark] .puresubs-download-btn {
   border-color: #717171;
   color: #fff;
 }
 
-[dark] .puresubs-download-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #909090;
+[dark] .puresubs-download-btn.disabled {
+  border-color: #525252;
+  color: #888;
 }
 
-/* Notification styles */
+[dark] .puresubs-download-btn.ready {
+  border-color: #42a5f5;
+  color: #42a5f5;
+}
+
+[dark] .puresubs-download-btn.ready:hover {
+  background: rgba(66, 165, 245, 0.1);
+  border-color: #1e88e5;
+}
+
+[dark] .puresubs-download-btn.loading {
+  border-color: #42a5f5;
+  color: #42a5f5;
+  background: rgba(66, 165, 245, 0.06);
+}
+
+[dark] .puresubs-download-btn.success {
+  border-color: #66bb6a;
+  color: #66bb6a;
+  background: rgba(102, 187, 106, 0.1);
+}
+
+/* 🎉 层级四：改进的通知系统 (Toast) */
 .puresubs-notification {
   position: fixed;
   top: 20px;
   right: 20px;
-  padding: 12px 20px;
-  border-radius: 8px;
+  padding: 16px 24px;
+  border-radius: 12px;
   color: white;
   font-family: "Roboto", "Arial", sans-serif;
   font-size: 14px;
   font-weight: 500;
   z-index: 10000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  animation: slideIn 0.3s ease-out;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: slideInBounce 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  max-width: 400px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .puresubs-notification--success {
-  background: #4caf50;
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+  border-left: 4px solid #2e7d32;
 }
 
 .puresubs-notification--error {
-  background: #f44336;
+  background: linear-gradient(135deg, #f44336 0%, #e53935 100%);
+  border-left: 4px solid #c62828;
+}
+
+.puresubs-notification--info {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+  border-left: 4px solid #1565c0;
+}
+
+.puresubs-notification--warning {
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  border-left: 4px solid #ef6c00;
+}
+
+/* 通知图标 */
+.puresubs-notification-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* 通知退出动画 */
+.puresubs-notification.fade-out {
+  animation: slideOutFade 0.3s ease-in forwards;
+}
+
+@keyframes slideInBounce {
+  0% {
+    transform: translateX(100%) scale(0.8);
+    opacity: 0;
+  }
+  70% {
+    transform: translateX(-10px) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutFade {
+  0% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%) scale(0.9);
+    opacity: 0;
+  }
 }
 
 @keyframes slideIn {

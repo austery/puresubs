@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PureSubs 交互设计改进演示</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .demo-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .demo-section {
+            margin-bottom: 40px;
+        }
+        
+        .demo-section h2 {
+            color: #1976d2;
+            border-bottom: 2px solid #e3f2fd;
+            padding-bottom: 10px;
+        }
+        
+        .button-states {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        
+        .notification-demo {
+            position: relative;
+            min-height: 100px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        
+        .feature-highlight {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #1976d2;
+            margin: 20px 0;
+        }
+        
+        .state-demo {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        
+        .state-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+    </style>
+    <link rel="stylesheet" href="../packages/chrome-extension/src/content/content.css">
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🎉 PureSubs 用户预期管理系统</h1>
+        <p>基于专业交互设计原则的完整用户体验改进</p>
+    </div>
+    
+    <div class="demo-container">
+        <div class="demo-section">
+            <h2>🎯 核心设计理念</h2>
+            <div class="feature-highlight">
+                <h3>用户预期管理系统的三个关键问题：</h3>
+                <ol>
+                    <li><strong>现在正在发生什么？</strong> (What is happening now?)</li>
+                    <li><strong>接下来会发生什么？</strong> (What will happen next?)</li>
+                    <li><strong>我（用户）现在能做什么？</strong> (What can I, the user, do now?)</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-container">
+        <div class="demo-section">
+            <h2>🔄 层级一：基础防卫型 - 按钮状态管理</h2>
+            <p>防范性处理，确保用户不会在无效状态下进行操作</p>
+            
+            <div class="button-states">
+                <div class="state-demo">
+                    <button class="puresubs-download-btn disabled">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="pulse">
+                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z" />
+                        </svg>
+                        <span>初始化中...</span>
+                    </button>
+                    <div class="state-label">禁用状态<br>等待间谍脚本就绪</div>
+                </div>
+                
+                <div class="state-demo">
+                    <button class="puresubs-download-btn ready">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="status-icon ready">
+                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                        <span>Download Subtitles</span>
+                    </button>
+                    <div class="state-label">就绪状态<br>可以点击操作</div>
+                </div>
+                
+                <div class="state-demo">
+                    <button class="puresubs-download-btn loading">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="spinner">
+                            <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z" />
+                        </svg>
+                        <span>正在处理...</span>
+                    </button>
+                    <div class="state-label">加载状态<br>正在处理请求</div>
+                </div>
+                
+                <div class="state-demo">
+                    <button class="puresubs-download-btn success">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z" />
+                        </svg>
+                        <span>下载完成！</span>
+                    </button>
+                    <div class="state-label">成功状态<br>操作成功完成</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="demo-container">
+        <div class="demo-section">
+            <h2>🎉 层级四：结果反馈型 - Toast 通知系统</h2>
+            <p>非阻塞性的优雅反馈，告知用户操作结果</p>
+            
+            <div class="notification-demo">
+                <button onclick="showDemoNotification('success')" style="margin: 5px; padding: 8px 16px; border: 1px solid #4caf50; background: white; color: #4caf50; border-radius: 4px; cursor: pointer;">显示成功通知</button>
+                <button onclick="showDemoNotification('error')" style="margin: 5px; padding: 8px 16px; border: 1px solid #f44336; background: white; color: #f44336; border-radius: 4px; cursor: pointer;">显示错误通知</button>
+                <button onclick="showDemoNotification('info')" style="margin: 5px; padding: 8px 16px; border: 1px solid #2196f3; background: white; color: #2196f3; border-radius: 4px; cursor: pointer;">显示信息通知</button>
+                <button onclick="showDemoNotification('warning')" style="margin: 5px; padding: 8px 16px; border: 1px solid #ff9800; background: white; color: #ff9800; border-radius: 4px; cursor: pointer;">显示警告通知</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-container">
+        <div class="demo-section">
+            <h2>🔄 完整流程演示</h2>
+            <p>体验从初始化到操作完成的完整用户体验流程</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <button id="demo-flow-btn" class="puresubs-download-btn disabled" onclick="startDemoFlow()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="pulse">
+                        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z" />
+                    </svg>
+                    <span>初始化中...</span>
+                </button>
+                <p style="margin-top: 15px; color: #666;">点击开始体验完整的用户预期管理流程</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-container">
+        <div class="demo-section">
+            <h2>📝 技术实现要点</h2>
+            
+            <div class="code-block">
+<pre>// 按钮状态管理
+type ButtonState = 'disabled' | 'ready' | 'loading' | 'success' | 'error';
+
+function setButtonState(newState: ButtonState, message?: string): void {
+  // 清除所有状态类
+  downloadButton.classList.remove('disabled', 'ready', 'loading', 'success', 'error');
+  
+  // 添加新状态类
+  downloadButton.classList.add(newState);
+  
+  // 根据状态更新按钮内容和行为
+  switch (newState) {
+    case 'disabled':
+      updateButtonContent('waiting', '初始化中...');
+      break;
+    case 'ready':
+      updateButtonContent('ready', 'Download Subtitles');
+      break;
+    // ...
+  }
+}</pre>
+            </div>
+            
+            <div class="feature-highlight">
+                <h3>🎯 关键改进点：</h3>
+                <ul>
+                    <li><strong>防范性处理：</strong>按钮初始化时处于禁用状态，防止无效操作</li>
+                    <li><strong>间谍脚本就绪检测：</strong>通过消息机制确认后台准备完毕</li>
+                    <li><strong>视觉状态反馈：</strong>通过颜色、图标、动画清晰表达当前状态</li>
+                    <li><strong>优雅的Toast通知：</strong>非阻塞性反馈，支持多种类型</li>
+                    <li><strong>完整的状态循环：</strong>disabled → ready → loading → success/error → ready</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showDemoNotification(type) {
+            const messages = {
+                success: 'PureSubs 已就绪，可以下载字幕了！',
+                error: '字幕下载失败，请刷新页面重试',
+                info: '正在初始化字幕拦截系统...',
+                warning: '该视频可能没有可用的字幕'
+            };
+            
+            const notification = document.createElement('div');
+            notification.className = `puresubs-notification puresubs-notification--${type}`;
+            
+            const icons = {
+                success: `<svg class="puresubs-notification-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z" />
+                </svg>`,
+                error: `<svg class="puresubs-notification-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,12 0 0,1 12,2M12,7A1.5,1.5 0 0,0 10.5,8.5V13A1.5,1.5 0 0,0 12,14.5A1.5,1.5 0 0,0 13.5,13V8.5A1.5,1.5 0 0,0 12,7M12,17.5A1.5,1.5 0 0,0 10.5,19A1.5,1.5 0 0,0 12,20.5A1.5,1.5 0 0,0 13.5,19A1.5,1.5 0 0,0 12,17.5Z" />
+                </svg>`,
+                info: `<svg class="puresubs-notification-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,7A1.5,1.5 0 0,0 10.5,8.5A1.5,1.5 0 0,0 12,10A1.5,1.5 0 0,0 13.5,8.5A1.5,1.5 0 0,0 12,7M10.5,12A1.5,1.5 0 0,0 12,13.5A1.5,1.5 0 0,0 13.5,12A1.5,1.5 0 0,0 12,10.5A1.5,1.5 0 0,0 10.5,12Z" />
+                </svg>`,
+                warning: `<svg class="puresubs-notification-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" />
+                </svg>`
+            };
+            
+            notification.innerHTML = `
+                ${icons[type]}
+                <span>${messages[type]}</span>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('fade-out');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 3000);
+        }
+        
+        function updateDemoButton(state, text) {
+            const button = document.getElementById('demo-flow-btn');
+            button.className = `puresubs-download-btn ${state}`;
+            
+            const icons = {
+                disabled: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="pulse">
+                    <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z" />
+                </svg>`,
+                ready: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                </svg>`,
+                loading: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="spinner">
+                    <path d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z" />
+                </svg>`,
+                success: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.59,8.09L11,13.67L7.91,10.59L6.5,12L11,16.5Z" />
+                </svg>`
+            };
+            
+            button.innerHTML = `${icons[state]}<span>${text}</span>`;
+        }
+        
+        function startDemoFlow() {
+            // 模拟完整的用户体验流程
+            
+            // 1. 初始化中 (已经是这个状态)
+            showDemoNotification('info');
+            
+            // 2. 2秒后变为就绪状态
+            setTimeout(() => {
+                updateDemoButton('ready', 'Download Subtitles');
+                showDemoNotification('success');
+            }, 2000);
+        }
+        
+        // 为就绪状态的按钮添加点击事件
+        document.addEventListener('click', function(e) {
+            const button = document.getElementById('demo-flow-btn');
+            if (e.target === button || button.contains(e.target)) {
+                if (button.classList.contains('ready')) {
+                    // 3. 点击后进入加载状态
+                    updateDemoButton('loading', '正在下载字幕...');
+                    
+                    // 4. 3秒后显示成功状态
+                    setTimeout(() => {
+                        updateDemoButton('success', '下载完成！');
+                        showDemoNotification('success');
+                        
+                        // 5. 2秒后回到就绪状态
+                        setTimeout(() => {
+                            updateDemoButton('ready', 'Download Subtitles');
+                        }, 2000);
+                    }, 3000);
+                }
+            }
+        });
+        
+        // 页面加载完成后，自动开始演示
+        window.addEventListener('load', function() {
+            setTimeout(startDemoFlow, 1000);
+        });
+    </script>
+</body>
+</html>
