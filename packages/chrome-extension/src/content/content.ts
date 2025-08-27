@@ -71,7 +71,8 @@ function wakeUpWaitingPromise(videoId: string, language: string, data: SpyData):
 }
 
 // 🌐 暴露给browser-engine使用的全局接口
-(window as any).puresubsContentScript = {
+// 提供给其他脚本的公共接口
+(window as unknown as Record<string, unknown>).puresubsContentScript = {
   // 获取缓存数据
   getCachedSubtitleData: (videoId: string, language?: string) => {
     if (language) {
@@ -91,7 +92,10 @@ function wakeUpWaitingPromise(videoId: string, language: string, data: SpyData):
   // 等待间谍数据的Promise接口
   waitForSpyData: (videoId: string, language: string, timeoutMs: number = 10000) => {
     // 先检查缓存
-    const cached = (window as any).puresubsContentScript.getCachedSubtitleData(videoId, language);
+    // 从 window 对象获取缓存数据（类型安全的访问）
+    const windowAny = window as unknown as Record<string, unknown>;
+    const contentScript = windowAny.puresubsContentScript as { getCachedSubtitleData?: (videoId: string, language?: string) => unknown };
+    const cached = contentScript?.getCachedSubtitleData?.(videoId, language);
     if (cached) {
       console.log('[PureSubs] 🎯 Found cached data, returning immediately');
       return Promise.resolve(cached);
@@ -899,13 +903,6 @@ function showError(message: string): void {
  */
 function showInfo(message: string): void {
   showNotification(message, 'info');
-}
-
-/**
- * Show warning message with orange notification
- */
-function showWarning(message: string): void {
-  showNotification(message, 'warning');
 }
 
 /**

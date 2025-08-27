@@ -9,6 +9,9 @@
  * @version 1.0.0
  */
 
+// Export all types for better type safety across the project
+export * from './types';
+
 export interface SubtitleTrack {
   /** Language code (e.g., 'en', 'zh-Hans') */
   language: string;
