@@ -20,7 +20,7 @@
    * 覆盖原生fetch函数 - 这是关键的"窃听"技术
    */
   window.fetch = async function(...args) {
-    const [input, init] = args;
+    const [input] = args;
     const url = typeof input === 'string' ? input : input.url;
     
     // 调用原始fetch获取响应

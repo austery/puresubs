@@ -55,7 +55,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 /**
  * 🔑 使用 chrome.scripting.executeScript 注入间谍脚本
  */
-async function handleSpyScriptInjection(tabId: number | undefined, url: string): Promise<{success: boolean, error?: string}> {
+async function handleSpyScriptInjection(tabId: number | undefined, _url: string): Promise<{success: boolean, error?: string}> {
   if (!tabId) {
     throw new Error('No tab ID provided');
   }

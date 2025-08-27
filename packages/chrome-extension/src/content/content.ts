@@ -79,7 +79,7 @@ function wakeUpWaitingPromise(videoId: string, language: string, data: SpyData):
       return subtitleCache.get(key);
     } else {
       // 返回任意语言的缓存数据
-      for (const [key, data] of subtitleCache.entries()) {
+      for (const [, data] of subtitleCache.entries()) {
         if (data.videoId === videoId) {
           return data;
         }
@@ -126,8 +126,6 @@ injectSpyScript();
 
 import { 
   getYouTubeDataFromPage, 
-  ExtractOptions, 
-  YouTubeVideoData,
   selectBestSubtitle 
 } from '../core/browser-engine';
 
@@ -604,8 +602,6 @@ async function downloadWithPreferences(preferences: UserPreferences): Promise<vo
     throw new Error('No video ID available');
   }
   
-  const videoUrl = `https://www.youtube.com/watch?v=${currentVideoId}`;
-  
   // 智能语言选择逻辑：中文 -> 英文 -> 提示无字幕
   const result = await smartDownloadSubtitles(preferences);
   
@@ -650,7 +646,7 @@ async function showLanguageSelector(): Promise<void> {
  * Get user preferences from storage
  */
 async function getUserPreferences(): Promise<UserPreferences> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve, _reject) => {
     try {
       if (typeof chrome === 'undefined' || !chrome.storage) {
         console.error('[PureSubs] Chrome storage API not available');

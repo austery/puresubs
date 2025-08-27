@@ -66,6 +66,7 @@ export class YouTubeSubtitleInterceptor {
   private interceptXHR(): void {
     const originalXHROpen = XMLHttpRequest.prototype.open;
     const originalXHRSend = XMLHttpRequest.prototype.send;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const interceptor = this; // 保存引用
     
     XMLHttpRequest.prototype.open = function(method: string, url: string | URL, async: boolean = true, username?: string | null, password?: string | null) {
