@@ -24,5 +24,12 @@ global.chrome = {
   },
   scripting: {
     executeScript: jest.fn()
+  },
+  tabs: {
+    onUpdated: {
+      addListener: jest.fn()
+    },
+    query: jest.fn(),
+    update: jest.fn()
   }
 };

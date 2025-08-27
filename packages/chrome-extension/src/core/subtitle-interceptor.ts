@@ -227,11 +227,19 @@ export function parseJSON3Subtitles(jsonData: string): SubtitleEntry[] {
           });
           
           if (text.trim()) {
-            entries.push({
-              start: event.tStartMs / 1000, // 转换毫秒到秒
-              end: (event.tStartMs + event.dDurationMs) / 1000,
-              text: cleanSubtitleText(text)
-            });
+            // 验证时间信息
+            const startMs = event.tStartMs;
+            const durationMs = event.dDurationMs;
+            
+            if (startMs != null && durationMs != null && 
+                !isNaN(startMs) && !isNaN(durationMs) && 
+                startMs >= 0 && durationMs > 0) {
+              entries.push({
+                start: startMs / 1000, // 转换毫秒到秒
+                end: (startMs + durationMs) / 1000,
+                text: cleanSubtitleText(text)
+              });
+            }
           }
         }
       });

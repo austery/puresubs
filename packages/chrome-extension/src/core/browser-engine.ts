@@ -119,18 +119,23 @@ export function extractPlayerResponseFromPage(): any {
         const match = content.match(pattern);
         if (match) {
           console.log('[PureSubs] Found ytInitialPlayerResponse with pattern:', pattern);
-          const playerResponse = JSON.parse(match[1]);
-          console.log('[PureSubs] Parsed playerResponse:', playerResponse);
-          return playerResponse;
+          try {
+            const playerResponse = JSON.parse(match[1]);
+            console.log('[PureSubs] Parsed playerResponse:', playerResponse);
+            return playerResponse;
+          } catch {
+            console.warn('[PureSubs] Failed to parse JSON, trying next match');
+            continue;
+          }
         }
       }
     }
     
-    console.error('[PureSubs] Could not find ytInitialPlayerResponse in any script tag');
-    throw new Error('Could not find ytInitialPlayerResponse in page');
+    console.warn('[PureSubs] Could not find ytInitialPlayerResponse in any script tag');
+    return {};
   } catch (error) {
-    console.error('[PureSubs] Error parsing ytInitialPlayerResponse:', error);
-    throw new Error(`Failed to parse ytInitialPlayerResponse: ${error}`);
+    console.error('[PureSubs] Error extracting ytInitialPlayerResponse:', error);
+    return {};
   }
 }
 
@@ -142,22 +147,28 @@ export function extractVideoMetadata(playerResponse: any): {
   description: string;
 } {
   try {
-    const videoDetails = playerResponse.videoDetails;
+    const videoDetails = playerResponse?.videoDetails;
     
     if (!videoDetails) {
-      throw new Error('No videoDetails found in playerResponse');
+      console.warn('[PureSubs] No videoDetails found in playerResponse');
+      return {
+        title: 'Untitled',
+        description: ''
+      };
     }
-    
+
     return {
       title: videoDetails.title || 'Untitled',
       description: videoDetails.shortDescription || ''
     };
   } catch (error) {
-    throw new Error(`Failed to extract video metadata: ${error}`);
+    console.error('[PureSubs] Error extracting video metadata:', error);
+    return {
+      title: 'Untitled',
+      description: ''
+    };
   }
-}
-
-/**
+}/**
  * Extract subtitle tracks from player response
  */
 export function extractSubtitleTracks(playerResponse: any): SubtitleTrack[] {
@@ -374,7 +385,9 @@ export function cleanSubtitleText(text: string): string {
   if (!text) return '';
 
   return text
-    // Decode common HTML entities (order matters - do this first)
+    // Remove HTML tags first (before decoding entities that might contain < >)
+    .replace(/<[^>]*>/g, '')
+    // Decode common HTML entities
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -385,8 +398,6 @@ export function cleanSubtitleText(text: string): string {
     // Decode numeric entities
     .replace(/&#(\d+);/g, (match, num) => String.fromCharCode(parseInt(num, 10)))
     .replace(/&#x([a-fA-F0-9]+);/g, (match, hex) => String.fromCharCode(parseInt(hex, 16)))
-    // Remove HTML tags
-    .replace(/<[^>]*>/g, '')
     // Clean up extra whitespace
     .replace(/\s+/g, ' ')
     .trim();
@@ -447,6 +458,11 @@ export function convertToTXT(entries: SubtitleEntry[], separator: string = '\n')
  * Format time in seconds to SRT timestamp format (HH:MM:SS,mmm)
  */
 export function formatSRTTimestamp(seconds: number): string {
+  // Handle negative values by clamping to 0
+  if (seconds < 0) {
+    seconds = 0;
+  }
+  
   // Round to 3 decimal places to avoid floating point precision issues
   const roundedSeconds = Math.round(seconds * 1000) / 1000;
   
