@@ -620,51 +620,36 @@ export async function getYouTubeDataFromPage(options: ExtractOptions = {}): Prom
         } catch (spyError: any) {
           console.error('[PureSubs] 🚨 Spy interception method failed:', spyError);
           
-          // 回退到传统方法
-          try {
-            console.log('[PureSubs] 🔄 Falling back to traditional methods...');
-            const { fetchSubtitleWithFallbacks } = await import('./subtitle-fallbacks');
-            const subtitleResult = await fetchSubtitleWithFallbacks(
-              selectedSubtitle.baseUrl, 
-              metadata.title
-            );
-            
-            subtitles = subtitleResult;
-            
-          } catch (fallbackError) {
-            console.error('[PureSubs] 💥 All subtitle extraction methods failed:', fallbackError);
-            
-            // 最终回退：详细的错误信息
-            const errorMessage = `🚨 字幕获取失败 (2025年最新尝试)
+          // 🚫 移除了会导致 ChunkLoadError 的备选方案
+          // 直接提供用户友好的错误信息，而不是尝试其他可能失败的方法
+          console.log('[PureSubs] ℹ️ Primary spy method failed, providing user guidance...');
+          
+          const errorMessage = `🚨 字幕获取失败
 
 视频: ${metadata.title}
 
-技术详情：
-- 间谍脚本注入：${typeof getInterceptedSubtitleData === 'function' ? '✅ 成功' : '❌ 失败'}
-- 可用字幕轨道：${availableSubtitles.length}个
-- 选定语言：${selectedSubtitle.language}
-- 错误类型：${spyError?.message || 'Unknown error'}
+可能的原因：
+- YouTube 更新了页面结构
+- 字幕数据尚未加载完成
+- 网络连接问题
 
-这表明YouTube可能又更新了反爬虫机制。
+建议解决方案：
+1. 刷新页面后重试
+2. 确保视频正在播放
+3. 在YouTube播放器中手动开启字幕
+4. 稍等片刻后再次尝试下载
 
-解决建议：
-1. 确保视频有字幕可用
-2. 尝试在YouTube播放器中手动开启字幕
-3. 刷新页面后重试
-4. 联系PureSubs团队获取最新更新
+PureSubs Team - 2025`;
 
-PureSubs Team - 2025年持续更新中 🛠️`;
-
-            subtitles = {
-              srt: `1\n00:00:00,000 --> 00:00:15,000\n${errorMessage}\n\n`,
-              txt: errorMessage,
-              entries: [{
-                start: 0,
-                end: 15,
-                text: errorMessage
-              }]
-            };
-          }
+          subtitles = {
+            srt: `1\n00:00:00,000 --> 00:00:15,000\n${errorMessage}\n\n`,
+            txt: errorMessage,
+            entries: [{
+              start: 0,
+              end: 15,
+              text: errorMessage
+            }]
+          };
         }
       } else {
         console.log('[PureSubs] ❌ No suitable subtitle track found');
