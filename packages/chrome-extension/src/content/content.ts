@@ -5,6 +5,8 @@
  * and handles the user interaction for downloading subtitles.
  */
 
+import { extractPlayerResponseFromPage, extractSubtitleTracks } from '../core/browser-engine';
+
 console.log('[PureSubs] Content script loaded and starting initialization');
 console.log('[PureSubs] Current URL:', location.href);
 console.log('[PureSubs] Document ready state:', document.readyState);
@@ -457,14 +459,45 @@ function handleVideoChange(): void {
     currentVideoId = videoId;
     console.log('[PureSubs] Video changed:', videoId);
     
+    // Clear cache to prevent state pollution
+    subtitleCache.clear();
+    console.log('[PureSubs] Cache cleared for new video');
+    
     // Remove existing button
     if (downloadButton) {
       downloadButton.remove();
       downloadButton = null;
     }
     
-    // Inject new button
-    setTimeout(() => injectDownloadButton(), 1000);
+    // Inject button with prophet mode check
+    setTimeout(() => injectDownloadButtonWithProphetMode(), 1000);
+  }
+}
+
+/**
+ * Inject button with proactive subtitle availability check (Prophet Mode)
+ */
+function injectDownloadButtonWithProphetMode(): void {
+  console.log('[PureSubs] Starting prophet mode check...');
+  
+  // Check if subtitles are available before creating button
+  try {
+    const playerResponse = extractPlayerResponseFromPage();
+    const availableSubtitles = extractSubtitleTracks(playerResponse);
+    
+    console.log('[PureSubs] Prophet mode check - available subtitles:', availableSubtitles);
+    
+    if (!availableSubtitles || availableSubtitles.length === 0) {
+      console.log('[PureSubs] Prophet mode: No subtitles available for this video, not creating button');
+      // Don't create button for videos without subtitles
+      return;
+    }
+    
+    console.log('[PureSubs] Prophet mode: Subtitles available, proceeding with button creation');
+    injectDownloadButton();
+  } catch (error) {
+    console.warn('[PureSubs] Prophet mode check failed, falling back to regular injection:', error);
+    injectDownloadButton();
   }
 }
 
