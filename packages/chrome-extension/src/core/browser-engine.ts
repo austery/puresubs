@@ -738,9 +738,24 @@ async function checkSpyStatus(): Promise<void> {
 }
 
 /**
- * 等待间谍拦截数据
+ * 等待间谍拦截数据 - 使用统一的Promise唤醒机制
  */
 async function waitForSpyData(videoId: string, language: string, timeoutMs: number = 5000): Promise<any> {
+  // 🎯 使用content script的统一Promise机制
+  const contentScript = (window as any).puresubsContentScript;
+  
+  if (contentScript && contentScript.waitForSpyData) {
+    console.log('[PureSubs] 🔄 Using content script Promise mechanism for waiting...');
+    try {
+      return await contentScript.waitForSpyData(videoId, language, timeoutMs);
+    } catch (error) {
+      console.log('[PureSubs] ⏰ Content script waiting timeout:', String(error));
+      return null;
+    }
+  }
+  
+  // 🔙 回退到原有逻辑（如果content script接口不可用）
+  console.log('[PureSubs] ⚠️ Content script interface not available, using fallback...');
   return new Promise((resolve) => {
     const timeout = setTimeout(() => {
       console.log('[PureSubs] ⏰ Waiting for spy data timeout');

@@ -22,6 +22,87 @@ interface SpyData {
 // 全局情报缓存 - 以videoId_language为key
 const subtitleCache = new Map<string, SpyData>();
 
+// 🎯 Promise唤醒机制 - 解决竞争状态问题
+interface PendingRequest {
+  resolve: (data: SpyData) => void;
+  reject: (error: Error) => void;
+  videoId: string;
+  language: string;
+  timestamp: number;
+}
+
+// 存储等待中的Promise resolve函数
+const pendingRequests = new Map<string, PendingRequest>();
+
+// 创建等待特定字幕数据的Promise
+function createWaitingPromise(videoId: string, language: string, timeoutMs: number = 10000): Promise<SpyData> {
+  const key = getCacheKey(videoId, language);
+  
+  return new Promise<SpyData>((resolve, reject) => {
+    // 存储resolve和reject函数，等待消息监听器唤醒
+    pendingRequests.set(key, {
+      resolve,
+      reject, 
+      videoId,
+      language,
+      timestamp: Date.now()
+    });
+    
+    // 设置超时
+    setTimeout(() => {
+      if (pendingRequests.has(key)) {
+        pendingRequests.delete(key);
+        reject(new Error(`Waiting for subtitle data timeout: ${videoId}_${language}`));
+      }
+    }, timeoutMs);
+  });
+}
+
+// 唤醒等待中的Promise（当新数据到达时调用）
+function wakeUpWaitingPromise(videoId: string, language: string, data: SpyData): void {
+  const key = getCacheKey(videoId, language);
+  const pending = pendingRequests.get(key);
+  
+  if (pending) {
+    console.log('[PureSubs] 🎉 Waking up waiting promise for:', key);
+    pendingRequests.delete(key);
+    pending.resolve(data);
+  }
+}
+
+// 🌐 暴露给browser-engine使用的全局接口
+(window as any).puresubsContentScript = {
+  // 获取缓存数据
+  getCachedSubtitleData: (videoId: string, language?: string) => {
+    if (language) {
+      const key = getCacheKey(videoId, language);
+      return subtitleCache.get(key);
+    } else {
+      // 返回任意语言的缓存数据
+      for (const [key, data] of subtitleCache.entries()) {
+        if (data.videoId === videoId) {
+          return data;
+        }
+      }
+      return null;
+    }
+  },
+  
+  // 等待间谍数据的Promise接口
+  waitForSpyData: (videoId: string, language: string, timeoutMs: number = 10000) => {
+    // 先检查缓存
+    const cached = (window as any).puresubsContentScript.getCachedSubtitleData(videoId, language);
+    if (cached) {
+      console.log('[PureSubs] 🎯 Found cached data, returning immediately');
+      return Promise.resolve(cached);
+    }
+    
+    // 如果缓存中没有，创建等待Promise
+    console.log('[PureSubs] 📡 Creating waiting promise for:', videoId, language);
+    return createWaitingPromise(videoId, language, timeoutMs);
+  }
+};
+
 // 清理过期缓存的函数
 function cleanExpiredCache() {
   const now = Date.now();
@@ -71,6 +152,9 @@ window.addEventListener('message', (event) => {
     
     console.log('[PureSubs] 💾 Cached subtitle data for:', cacheKey);
     console.log('[PureSubs] 📋 Current cache size:', subtitleCache.size);
+    
+    // 🎯 【关键修复】唤醒等待中的Promise
+    wakeUpWaitingPromise(spyData.videoId, spyData.language, spyData);
     
     // 定期清理过期缓存
     cleanExpiredCache();
