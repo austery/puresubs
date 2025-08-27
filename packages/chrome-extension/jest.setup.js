@@ -1,0 +1,1 @@
+// Jest setup file for Chrome Extension testing

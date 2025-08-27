@@ -3,7 +3,8 @@
     "allow": [
       "WebSearch",
       "Bash(pnpm install:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(pnpm test:*)"
     ],
     "deny": [],
     "ask": []

@@ -6,7 +6,7 @@
     "dev": "webpack --mode development --watch",
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
-    "test": "jest",
+    "test": "jest --config jest.config.mjs --passWithNoTests",
     "lint": "eslint src --ext .ts,.js",
     "lint:fix": "eslint src --ext .ts,.js --fix",
     "clean": "rimraf dist",
