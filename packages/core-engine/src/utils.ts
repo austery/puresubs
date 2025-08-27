@@ -25,7 +25,8 @@ export function delay(ms: number): Promise<void> {
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
-  baseDelay: number = 1000
+  baseDelay: number = 1000,
+  delayFn: (ms: number) => Promise<void> = delay
 ): Promise<T> {
   let lastError: Error;
   
@@ -40,8 +41,8 @@ export async function retryWithBackoff<T>(
       }
       
       // Exponential backoff with jitter
-      const delayMs = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
-      await delay(delayMs);
+  const delayMs = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+  await delayFn(delayMs);
     }
   }
   

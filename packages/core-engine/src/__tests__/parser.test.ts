@@ -6,7 +6,8 @@ import {
   convertToTXT,
   formatSRTTimestamp,
   cleanSubtitleText,
-  mergeSubtitleEntries
+  mergeSubtitleEntries,
+  parseSubtitleXML
 } from '../parser';
 
 import { SubtitleEntry } from '../index';
@@ -189,6 +190,23 @@ describe('Parser Functions', () => {
         end: 3,
         text: 'A B C'
       });
+    });
+  });
+
+  describe('parseSubtitleXML', () => {
+    it('parses entries with and without duration, cleans text, and sorts by start', () => {
+      const xml = `<?xml version="1.0" encoding="utf-8"?>
+        <transcript>
+          <text start="2.0" dur="1.5">World</text>
+          <text start="0.5">  Hello  </text>
+          <text start="4.0" dur="1">   </text> <!-- empty -> ignored -->
+        </transcript>`;
+
+      const entries = parseSubtitleXML(xml);
+      expect(entries).toEqual([
+        { start: 0.5, end: 0.5, text: 'Hello' },
+        { start: 2.0, end: 3.5, text: 'World' }
+      ]);
     });
   });
 });

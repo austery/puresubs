@@ -4,7 +4,9 @@
       "WebSearch",
       "Bash(pnpm install:*)",
       "Bash(pnpm build:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "Bash(claude config --help)",
+      "Bash(claude config list)"
     ],
     "deny": [],
     "ask": []

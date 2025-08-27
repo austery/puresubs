@@ -17,7 +17,7 @@ export default {
   coverageReporters: ['text', 'lcov', 'html'],
   coverageThreshold: {
     global: {
-      branches: 70, // 降低覆盖率要求以便快速测试
+  branches: 70,
       functions: 70,
       lines: 70,
       statements: 70

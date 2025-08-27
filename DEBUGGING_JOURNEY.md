@@ -3,10 +3,13 @@
 ## 📅 时间线：2025年8月26日
 
 ### 🚨 问题描述
+
 用户报告：在YouTube上直接下载字幕时，总是下载为空文件。
 
 ### 🔍 根本原因分析
+
 YouTube在2024-2025年期间逐步推出了更高级的反解析机制：
+
 1. **数据懒加载**：字幕数据不再静态嵌入在HTML中
 2. **CSP限制**：内容安全策略阻止直接模块加载
 3. **API格式变化**：从XML转向JSON3格式
@@ -19,14 +22,17 @@ YouTube在2024-2025年期间逐步推出了更高级的反解析机制：
 ### 第一阶段：传统方法诊断 ❌
 
 **尝试1：基础API调用**
+
 ```typescript
 // 简单的fetch请求
 const response = await fetch(subtitleUrl);
 const content = await response.text();
 ```
+
 **结果**：返回空内容或错误响应
 
 **尝试2：增强请求头**
+
 ```typescript
 const response = await fetch(subtitleUrl, {
   headers: {
@@ -36,6 +42,7 @@ const response = await fetch(subtitleUrl, {
   }
 });
 ```
+
 **结果**：仍然无效，YouTube检测到非浏览器请求
 
 ---
@@ -43,6 +50,7 @@ const response = await fetch(subtitleUrl, {
 ### 第二阶段：网络请求拦截 ⚠️
 
 **尝试3：Chrome扩展内容脚本拦截**
+
 ```typescript
 // 在content script中重写fetch
 const originalFetch = window.fetch;
@@ -52,9 +60,11 @@ window.fetch = async function(...args) {
   return response;
 };
 ```
+
 **问题**：Chrome扩展沙箱限制，无法拦截页面级请求
 
 **尝试4：XMLHttpRequest拦截**
+
 ```typescript
 const originalOpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function(method, url) {
@@ -64,6 +74,7 @@ XMLHttpRequest.prototype.open = function(method, url) {
   return originalOpen.apply(this, arguments);
 };
 ```
+
 **问题**：同样受沙箱限制影响
 
 ---
@@ -71,6 +82,7 @@ XMLHttpRequest.prototype.open = function(method, url) {
 ### 第三阶段：用户界面自动化 ⚠️
 
 **尝试5：模拟用户操作触发字幕加载**
+
 ```typescript
 async function triggerSubtitleLoading(): Promise<void> {
   // 查找字幕按钮
@@ -85,6 +97,7 @@ async function triggerSubtitleLoading(): Promise<void> {
   }
 }
 ```
+
 **问题**：触发了UI变化，但仍无法捕获网络数据
 
 ---
@@ -345,6 +358,7 @@ function spyFunction() {
 3. **错误处理**
    - 手动注入：依赖script元素的error事件
    - 官方API：Promise-based，更好的错误信息
+
 ```javascript
 // injected-spy.js - 运行在主页面上下文
 (function() {
@@ -400,6 +414,7 @@ function spyFunction() {
 ```
 
 #### 步骤2：内容脚本注入
+
 ```typescript
 // content.ts
 async function injectSpyScript(): Promise<void> {
@@ -433,6 +448,7 @@ window.addEventListener('message', (event) => {
 ```
 
 #### 步骤3：浏览器引擎集成
+
 ```typescript
 // browser-engine.ts
 export async function getYouTubeDataFromPage(options: ExtractOptions = {}): Promise<YouTubeVideoData> {
@@ -470,6 +486,7 @@ export async function getYouTubeDataFromPage(options: ExtractOptions = {}): Prom
 ```
 
 #### 步骤4：配置更新
+
 ```json
 // manifest.json
 {
@@ -500,21 +517,25 @@ new CopyWebpackPlugin({
 ## 🎯 技术突破点
 
 ### 1. 沙箱绕过
+
 **问题**：Chrome扩展content script运行在隔离的沙箱中，无法访问页面的网络请求。
 
 **解决方案**：通过动态注入脚本到主页面上下文，绕过沙箱限制。
 
 ### 2. CSP规避
+
 **问题**：YouTube的内容安全策略阻止外部脚本执行。
 
 **解决方案**：使用Chrome扩展的`web_accessible_resources`特权，允许脚本在YouTube页面执行。
 
 ### 3. 实时数据捕获
+
 **问题**：字幕数据通过异步请求动态加载，静态解析无法获取。
 
 **解决方案**：在网络层面拦截fetch和XMLHttpRequest，实时捕获字幕数据。
 
 ### 4. 跨上下文通信
+
 **问题**：注入脚本与内容脚本在不同上下文中，需要数据传递。
 
 **解决方案**：使用`window.postMessage`进行跨上下文通信。
@@ -524,6 +545,7 @@ new CopyWebpackPlugin({
 ## 📊 性能优化
 
 ### 1. 选择性拦截
+
 ```javascript
 function isSubtitleURL(url) {
   return url && typeof url === 'string' && [
@@ -537,6 +559,7 @@ function isSubtitleURL(url) {
 ```
 
 ### 2. 数据缓存
+
 ```typescript
 declare global {
   interface Window {
@@ -554,6 +577,7 @@ declare global {
 ```
 
 ### 3. 超时处理
+
 ```typescript
 async function waitForSpyData(videoId: string, language: string, timeoutMs: number = 5000): Promise<any> {
   return new Promise((resolve) => {
