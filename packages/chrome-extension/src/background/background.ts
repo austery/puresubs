@@ -297,4 +297,9 @@ function spyFunction() {
   }
   
   console.log('[PureSubs Spy] 🚀 Agent fully initialized and monitoring network requests (executeScript method)');
+  
+  // 🎯 关键修复：发送就绪信号给内容脚本
+  console.log('[PureSubs Spy] ✅ Spy setup complete. Sending READY signal to content script...');
+  window.postMessage({ type: 'PURESUBS_SPY_READY' }, '*');
+  console.log('[PureSubs Spy] 📡 READY signal sent successfully!');
 }
