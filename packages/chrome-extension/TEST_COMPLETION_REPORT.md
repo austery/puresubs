@@ -432,3 +432,108 @@ Learn more: https://github.blog/changelog/2024-04-16-deprecation-notice-v3-of-th
 **CI/CD 修复完成时间**: 2025年8月27日  
 **修复状态**: ✅ 完成，构建流程已恢复正常  
 **影响范围**: GitHub Actions 构建流程，Chrome 扩展打包部署
+
+---
+
+## 🔧 PNPM 版本冲突修复 (2025年8月27日)
+
+### 🚨 新发现的问题
+
+在修复 Actions 版本后，CI/CD 流程出现了新的错误：
+
+```
+Error: Multiple versions of pnpm specified:
+  - version 10 in the GitHub Action config with the key "version"
+  - version pnpm@10.14.0 in the package.json with the key "packageManager"
+Remove one of these versions to avoid version mismatch errors like ERR_PNPM_BAD_PM_VERSION
+```
+
+### 🔍 问题分析
+
+**根本原因**: pnpm 版本在两个地方被重复定义，导致冲突：
+
+1. **GitHub Actions 配置** (`.github/workflows/ci.yml`):
+   ```yaml
+   - name: Setup pnpm
+     uses: pnpm/action-setup@v4
+     with:
+       version: 10  # ❌ 冲突源
+   ```
+
+2. **项目根目录 package.json**:
+   ```json
+   {
+     "packageManager": "pnpm@10.14.0"  # ✅ 标准配置
+   }
+   ```
+
+### 🛠️ 解决方案
+
+**采用策略**: 移除 GitHub Actions 中的版本配置，使用 `package.json` 中的 `packageManager` 字段作为唯一版本源。
+
+#### 配置文件更改
+
+**文件**: `.github/workflows/ci.yml`
+
+```diff
+# 测试作业中的 pnpm 设置
+- name: Setup pnpm
+  uses: pnpm/action-setup@v4
+- with:
+-   version: 10
+
+# 构建作业中的 pnpm 设置  
+- name: Setup pnpm
+  uses: pnpm/action-setup@v4
+- with:
+-   version: 10
+```
+
+### ✅ 修复结果
+
+- ✅ **消除版本冲突**: pnpm 版本由 `packageManager` 字段统一管理
+- ✅ **遵循最佳实践**: 使用标准的 `packageManager` 字段
+- ✅ **提升稳定性**: 避免版本不匹配错误
+- ✅ **简化配置**: 版本管理集中到一个地方
+
+### 📋 版本管理策略
+
+现在项目使用统一的版本管理策略：
+
+**唯一版本源**: `package.json`
+```json
+{
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=18.0.0", 
+    "pnpm": ">=8.0.0"
+  }
+}
+```
+
+**pnpm/action-setup@v4 的行为**:
+- 自动读取 `package.json` 中的 `packageManager` 字段
+- 使用指定的确切版本 (10.14.0)
+- 无需在 GitHub Actions 中重复配置
+
+### 🎯 验证要点
+
+修复后，CI/CD 流程应该：
+
+1. **正确读取版本**: 从 `packageManager` 字段获取 pnpm@10.14.0
+2. **无版本冲突**: 不再出现 `ERR_PNPM_BAD_PM_VERSION` 错误
+3. **正常执行**: 测试和构建步骤正常运行
+4. **保持一致性**: 本地开发和 CI 使用相同版本
+
+### 💡 最佳实践总结
+
+1. **使用 packageManager 字段**: 在 package.json 中明确指定包管理器版本
+2. **避免重复配置**: 不在 CI 配置中重复指定版本
+3. **版本固定**: 使用具体版本号而非范围，确保构建一致性
+4. **定期更新**: 根据需要统一更新 packageManager 版本
+
+---
+
+**PNPM 版本冲突修复完成时间**: 2025年8月27日  
+**修复状态**: ✅ 完成，版本管理已统一  
+**技术改进**: 采用标准 packageManager 字段管理版本
