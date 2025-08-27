@@ -46,11 +46,6 @@ describe('extractor.ts - Error Handling and Edge Cases', () => {
     });
 
     it('parses alternative pattern: "ytInitialPlayerResponse": {...},', () => {
-      const html = `<!doctype html><html><body>
-        <script>window["ytdApp"] = {"data": {"ytInitialPlayerResponse": {"videoDetails": {"title": "Alt"}},"x":1}}</script>
-        <!-- Minimal alt pattern substring -->
-        {"key": "ytInitialPlayerResponse": {"videoDetails": {"title": "Alt"}},"tail": 1},
-      </body></html>`;
       // Construct a string that matches the alt regex: ytInitialPlayerResponse":\s*(\{.+?\}),"
       const altHtml = 'ytInitialPlayerResponse": {"videoDetails": {"title": "Alt"}},"';
       const pr = extractPlayerResponse(altHtml);

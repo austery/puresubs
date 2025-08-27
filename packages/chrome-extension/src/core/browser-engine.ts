@@ -4,7 +4,6 @@
  */
 
 import { 
-  globalSubtitleInterceptor, 
   parseJSON3Subtitles
 } from './subtitle-interceptor';
 
@@ -226,7 +225,7 @@ export async function fetchSubtitleXML(subtitleUrl: string): Promise<string> {
 
   try {
     // 1. 首先尝试原始 URL
-    let xmlContent = await fetchFromBackground(subtitleUrl);
+    const xmlContent = await fetchFromBackground(subtitleUrl);
     if (xmlContent && xmlContent.length > 0) {
       return xmlContent;
     }
@@ -318,7 +317,7 @@ export function parseSubtitleXML(xmlContent: string): SubtitleEntry[] {
         matchCount++;
         let start = parseFloat(match[1]);
         let duration = match[2] ? parseFloat(match[2]) : 2.0; // 默认2秒时长
-        let rawText = match[3];
+        const rawText = match[3];
 
         // srv3格式使用毫秒，需要转换
         if (start > 10000) { // 如果开始时间大于10000，基本可以断定是毫秒
