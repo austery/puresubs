@@ -380,9 +380,9 @@ function init(): void {
   // Wait for YouTube to load
   waitForElement('#movie_player').then((element) => {
     console.log('[PureSubs] Found #movie_player element:', element);
-    console.log('[PureSubs] Setting up video watcher and injecting button with prophet mode...');
+    console.log('[PureSubs] Setting up video watcher and applying prophet mode decision gate...');
     setupVideoWatcher();
-    injectDownloadButtonWithProphetMode(); // 🔮 关键修复：使用先知模式检查
+    prophetModeDecisionGate(); // 🔮 使用统一的决策门逻辑
     isInitialized = true;
     console.log('[PureSubs] Initialization completed successfully');
   }).catch((error) => {
@@ -450,7 +450,7 @@ function setupVideoWatcher(): void {
 }
 
 /**
- * Handle video page changes
+ * Handle video page changes with Prophet Mode as Decision Gate
  */
 function handleVideoChange(): void {
   const videoId = extractVideoIdFromUrl(location.href);
@@ -469,36 +469,45 @@ function handleVideoChange(): void {
       downloadButton = null;
     }
     
-    // Inject button with prophet mode check
-    setTimeout(() => injectDownloadButtonWithProphetMode(), 1000);
+    // =========================================================
+    // 🔮 PROPHET MODE: Decision Gate - Check before any UI injection
+    // =========================================================
+    setTimeout(() => prophetModeDecisionGate(), 1000);
   }
 }
 
 /**
- * Inject button with proactive subtitle availability check (Prophet Mode)
+ * Prophet Mode Decision Gate - The Gatekeeper of User Experience
+ * Only creates UI if subtitles are 100% confirmed to be available
  */
-function injectDownloadButtonWithProphetMode(): void {
-  console.log('[PureSubs] Starting prophet mode check...');
+function prophetModeDecisionGate(): void {
+  console.log('[PureSubs] 🔮 Prophet Mode: Starting decision gate...');
   
-  // Check if subtitles are available before creating button
   try {
+    // Step 1: Silent background check for subtitle availability
     const playerResponse = extractPlayerResponseFromPage();
     const availableSubtitles = extractSubtitleTracks(playerResponse);
     
-    console.log('[PureSubs] Prophet mode check - available subtitles:', availableSubtitles);
+    console.log('[PureSubs] 🔮 Prophet Mode: Subtitle availability check completed');
+    console.log('[PureSubs] 🔮 Available subtitles:', availableSubtitles);
     
+    // Step 2: Decision Gate - The Critical UX Moment
     if (!availableSubtitles || availableSubtitles.length === 0) {
-      console.log('[PureSubs] Prophet mode: No subtitles available for this video, not creating button');
-      // Don't create button for videos without subtitles
+      console.info('[PureSubs] 🔮 Prophet Mode: No subtitles detected. Maintaining clean UI - no button injection.');
+      console.info('[PureSubs] 🔮 Prophet Mode: User will see a clean page without false promises.');
+      // CRITICAL: Exit here. No UI injection. Clean, honest user experience.
       return;
     }
     
-    console.log('[PureSubs] Prophet mode: Subtitles available, proceeding with button creation');
+    // Step 3: Proceed with UI injection only for videos with confirmed subtitles
+    console.log('[PureSubs] 🔮 Prophet Mode: Subtitles confirmed! Proceeding with button injection.');
     injectDownloadButton();
+    
   } catch (error) {
-    console.error('[PureSubs] Prophet mode check failed:', error);
-    // 不再无条件注入按钮，而是通知用户初始化失败
-    showError('PureSubs failed to initialize. Please refresh the page.');
+    console.error('[PureSubs] 🔮 Prophet Mode: Decision gate failed:', error);
+    console.info('[PureSubs] 🔮 Prophet Mode: Choosing conservative approach - no button injection to ensure consistency.');
+    // Conservative approach: when in doubt, don't inject to maintain clean UX
+    return;
   }
 }
 
