@@ -1,6 +1,6 @@
 {
   "name": "@puresubs/core-engine",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Core engine for extracting YouTube video metadata and subtitles",
   "type": "module",
   "main": "dist/index.js",
@@ -12,9 +12,9 @@
   "scripts": {
     "dev": "rollup -c rollup.config.js -w",
     "build": "rollup -c rollup.config.js",
-  "test": "jest --config jest.config.mjs",
-  "test:watch": "jest --config jest.config.mjs --watch",
-  "test:coverage": "jest --config jest.config.mjs --coverage --coverageReporters=text --coverageReporters=lcov --coverageReporters=html",
+    "test": "jest --config jest.config.mjs",
+    "test:watch": "jest --config jest.config.mjs --watch",
+    "test:coverage": "jest --config jest.config.mjs --coverage --coverageReporters=text --coverageReporters=lcov --coverageReporters=html",
     "lint": "cd ../.. && npx eslint packages/core-engine/src/",
     "lint:fix": "cd ../.. && npx eslint packages/core-engine/src/ --fix",
     "clean": "rimraf dist"

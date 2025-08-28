@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Subtitle Downloader",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Download YouTube subtitles and captions with ease. Pure, fast, and ad-free.",
   
   "permissions": [

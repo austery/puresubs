@@ -1,6 +1,6 @@
 {
   "name": "@puresubs/chrome-extension",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Chrome extension for downloading YouTube subtitles using PureSubs core engine",
   "scripts": {
     "dev": "webpack --mode development --watch",
