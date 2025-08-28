@@ -271,9 +271,9 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// 🎯 重要：在设置好消息监听器之后，再注入间谍脚本
-console.log('[PureSubs] 🎯 Message listener set up, now injecting spy script...');
-injectSpyScript();
+// 🎯 注意：间谍脚本注入现在由 Prophet Mode Decision Gate 控制
+// 只有在确认视频有字幕时才注入，避免不必要的资源消耗
+console.log('[PureSubs] 🎯 Message listener set up. Spy script injection will be handled by Prophet Mode Decision Gate.');
 
 /**
  * 🔑 使用官方API注入间谍脚本到主页面上下文 (Manifest V3)
@@ -501,6 +501,11 @@ function prophetModeDecisionGate(): void {
     
     // Step 3: Proceed with UI injection only for videos with confirmed subtitles
     console.log('[PureSubs] 🔮 Prophet Mode: Subtitles confirmed! Proceeding with button injection.');
+    
+    // 🕵️ CRITICAL: Inject spy script BEFORE creating the button
+    injectSpyScript();
+    
+    // Then inject the download button
     injectDownloadButton();
     
   } catch (error) {
