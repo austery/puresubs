@@ -180,7 +180,7 @@ export function extractSubtitleTracks(playerResponse: any): SubtitleTrack[] {
     console.log('[PureSubs] Found captionTracks:', captionsArray);
     
     if (!captionsArray || !Array.isArray(captionsArray)) {
-      console.warn('[PureSubs] No caption tracks found or not array');
+      console.info('[PureSubs] No caption tracks found for this video (normal case)');
       return [];
     }
     
@@ -634,7 +634,7 @@ export async function getYouTubeDataFromPage(options: ExtractOptions = {}): Prom
           }
           
         } catch (spyError: any) {
-          console.error('[PureSubs] 🚨 Spy interception method failed:', spyError);
+          console.warn('[PureSubs] ⚠️ Spy interception method failed (expected failure with fallback):', spyError);
           
           // 🚫 移除了会导致 ChunkLoadError 的备选方案
           // 直接提供用户友好的错误信息，而不是尝试其他可能失败的方法

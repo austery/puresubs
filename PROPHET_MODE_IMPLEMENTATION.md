@@ -86,6 +86,32 @@ injectDownloadButton(); // ❌ 绕过先知检查
 injectDownloadButtonWithProphetMode(); // ✅ 统一使用先知检查
 ```
 
+### 4. 日志级别优化 Log Level Optimization
+
+**问题根源：**
+扩展在 `chrome://extensions` 错误页面显示大量"错误"，实际上是将正常业务逻辑误标记为错误。
+
+**日志分级原则：**
+
+- **`console.error()`** 🚨 - 仅用于真正的、意外的程序错误
+- **`console.warn()`** ⚠️ - 用于可预期但需要注意的情况
+- **`console.info()`** ℹ️ - 用于正常的业务逻辑判断
+
+**修复示例：**
+
+```typescript
+// 修复前 - 误用错误级别 ❌
+console.error('[PureSubs] 🚨 Spy interception method failed:', spyError);
+console.warn('[PureSubs] No caption tracks found or not array');
+
+// 修复后 - 正确的日志级别 ✅
+console.warn('[PureSubs] ⚠️ Spy interception method failed (expected failure with fallback):', spyError);
+console.info('[PureSubs] No caption tracks found for this video (normal case)');
+```
+
+**结果：**
+Chrome 扩展错误页面现在只显示真正的程序错误，"红色警报中心"恢复了应有的宁静。
+
 ## 功能特点 Key Features
 
 ### ✅ 预防性设计 Preventive Design
