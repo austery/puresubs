@@ -1,7 +1,7 @@
-import express, { Request, Response } from 'express';
+import express, { Express, Request, Response } from 'express';
 import { getYouTubeData, ExtractOptions } from '@puresubs/core-engine';
 
-const app = express();
+const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware to parse JSON request bodies
