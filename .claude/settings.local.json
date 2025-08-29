@@ -6,7 +6,18 @@
       "Bash(pnpm build:*)",
       "Bash(pnpm test:*)",
       "Bash(claude config --help)",
-      "Bash(claude config list)"
+      "Bash(claude config list)",
+      "Bash(npm search:*)",
+      "Bash(claude mcp:*)",
+      "WebFetch(domain:www.youtube.com)",
+      "Bash(npx @playwright/mcp:*)",
+      "Bash(claude --mcp-config)",
+      "Read(//Users/pengl/**)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_close",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:context7.com)"
     ],
     "deny": [],
     "ask": []
