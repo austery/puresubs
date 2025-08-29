@@ -1,0 +1,30 @@
+{
+  "name": "@puresubs/pkm-automation",
+  "version": "1.0.0",
+  "description": "PKM Automation API service for YouTube subtitle extraction",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@puresubs/core-engine": "workspace:*",
+    "express": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.0.0",
+    "@types/node": "^20.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "pkm",
+    "automation",
+    "youtube",
+    "subtitle",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC"
+}
